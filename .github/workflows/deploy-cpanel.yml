@@ -258,12 +258,41 @@ jobs:
           echo "Node version:"
           node --version
 
+          PNPM_VERSION="\$(node -p 'require("./package.json").packageManager.replace(/^pnpm@/, "")')"
+
+          case "\$PNPM_VERSION" in
+            ''|*[!0-9.]*)
+              echo "Invalid pnpm version in package.json"
+              exit 1
+              ;;
+          esac
+
+          PNPM_COMMAND=()
+
+          if command -v corepack >/dev/null 2>&1 && corepack pnpm --version >/dev/null 2>&1; then
+            PNPM_COMMAND=(corepack pnpm)
+          fi
+
+          if [ "\${#PNPM_COMMAND[@]}" -eq 0 ]; then
+            echo "Corepack is unavailable; installing pnpm \$PNPM_VERSION locally..."
+            npm install \
+              --prefix "\$APP_PATH/.pnpm" \
+              --no-save \
+              "pnpm@\$PNPM_VERSION"
+            PNPM_COMMAND=("\$APP_PATH/.pnpm/node_modules/.bin/pnpm")
+          fi
+
           echo "pnpm version:"
-          pnpm --version
+          ACTUAL_PNPM_VERSION="\$("\${PNPM_COMMAND[@]}" --version)"
+          test "\$ACTUAL_PNPM_VERSION" = "\$PNPM_VERSION" || {
+            echo "Expected pnpm \$PNPM_VERSION but found \$ACTUAL_PNPM_VERSION"
+            exit 1
+          }
+          echo "\$ACTUAL_PNPM_VERSION"
 
           echo "Installing production dependencies..."
 
-          CI=true pnpm install \
+          CI=true "\${PNPM_COMMAND[@]}" install \
             --prod \
             --frozen-lockfile
 
