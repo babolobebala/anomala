@@ -1,8 +1,9 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "../../../tokens.css";
 
 @theme static {
-  --font-sans: 'Public Sans', sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   --color-green-50: #EFFDF5;
   --color-green-100: #D9FBE8;
@@ -15,4 +16,29 @@
   --color-green-800: #016538;
   --color-green-900: #0A5331;
   --color-green-950: #052E16;
+}
+
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink-2);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+* {
+  min-width: 0;
+}
+
+:focus-visible {
+  outline: var(--rule-focus) solid var(--color-focus);
+  outline-offset: 2px;
 }

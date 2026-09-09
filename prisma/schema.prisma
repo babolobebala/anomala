@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model MasterSls {
+  idSubsls  String    @id
+  kecamatan String
+  desa      String
+  namaSls   String
+  ppl       String
+  pml       String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  anomalies Anomali[]
+
+  @@map("master_sls")
+}
+
+model MasterAnomali {
+  kodeAnomali String    @id
+  deskripsi   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  anomalies Anomali[]
+
+  @@map("master_anomali")
+}
+
+model Anomali {
+  id         String @id @default(cuid())
+  anomalyKey String @unique
+
+  assignmentId String
+  idSubsls     String
+  kodeAnomali  String
+
+  statusAlias    String?
+  namaAssignment String?
+  nomorBangunan  String?
+  idsbr          String?
+  linkFasihEdit  String?
+  data           String  @db.Text
+  catatan        String? @db.Text
+
+  isActive    Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  isHandled    Boolean   @default(false)
+  handledAt    DateTime?
+  handledBy    String?
+  handlingNote String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  masterSls     MasterSls     @relation(fields: [idSubsls], references: [idSubsls])
+  masterAnomali MasterAnomali @relation(fields: [kodeAnomali], references: [kodeAnomali])
+
+  @@index([assignmentId])
+  @@index([idSubsls])
+  @@index([kodeAnomali])
+  @@index([isActive])
+  @@index([isHandled])
+  @@map("anomali")
+}
