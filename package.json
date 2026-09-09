@@ -9,6 +9,7 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
+    "db:generate": "prisma generate",
     "import:anomali": "tsx scripts/import-anomali.ts",
     "test:anomali-import": "tsx tests/anomali-import.test.ts"
   },
