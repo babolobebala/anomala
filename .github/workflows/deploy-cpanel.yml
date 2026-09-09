@@ -249,7 +249,9 @@ jobs:
 
           echo "Activating cPanel Node.js environment..."
 
+          set +u
           source /home/dkpd5534/nodevenv/anomali/24/bin/activate
+          set -u
 
           cd "\$APP_PATH"
 
