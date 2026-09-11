@@ -26,7 +26,14 @@ export default defineEventHandler(async (event) => {
 
   const handledAt = body.isHandled ? new Date() : null
   const result = await prisma.anomali.updateMany({
-    where: activeAssignmentHandlingWhere(assignmentId),
+    where: body.isHandled
+      ? activeAssignmentHandlingWhere(assignmentId)
+      : {
+          assignmentId,
+          isActive: true,
+          isHandled: true,
+          isSesuaiLapangan: false
+        },
     data: {
       isHandled: body.isHandled,
       handledAt

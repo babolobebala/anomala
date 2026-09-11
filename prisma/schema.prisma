@@ -33,6 +33,26 @@ model MasterAnomali {
   @@map("master_anomali")
 }
 
+model MasterEksekutor {
+  id   String @id @default(cuid())
+  nama String
+
+  assignmentHandlings AssignmentHandling[]
+
+  @@map("master_eksekutor")
+}
+
+model AssignmentHandling {
+  assignmentId String @id
+  eksekutorId  String?
+  updatedAt    DateTime @updatedAt
+
+  eksekutor MasterEksekutor? @relation(fields: [eksekutorId], references: [id], onDelete: SetNull)
+
+  @@index([eksekutorId])
+  @@map("assignment_handling")
+}
+
 model Anomali {
   id         String @id @default(cuid())
   anomalyKey String @unique
@@ -58,6 +78,9 @@ model Anomali {
   handledBy    String?
   handlingNote String?   @db.Text
 
+  isSesuaiLapangan   Boolean   @default(false)
+  sesuaiLapanganAt   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -69,5 +92,6 @@ model Anomali {
   @@index([kodeAnomali])
   @@index([isActive])
   @@index([isHandled])
+  @@index([isSesuaiLapangan])
   @@map("anomali")
 }

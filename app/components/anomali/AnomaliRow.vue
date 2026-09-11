@@ -11,6 +11,7 @@ defineProps<{
 const emit = defineEmits<{
   'toggle-data': []
   'toggle-handling': []
+  'toggle-field-condition': []
 }>()
 </script>
 
@@ -39,42 +40,107 @@ const emit = defineEmits<{
       <span
         class="handling-status"
         :class="
-          anomaly.isActive && !anomaly.isHandled
+          anomaly.isActive && !anomaly.isHandled && !anomaly.isSesuaiLapangan
             ? 'handling-status--pending'
+            : anomaly.isActive && anomaly.isSesuaiLapangan
+              ? 'handling-status--field-condition'
             : 'handling-status--done'
         "
       >
         {{
           !anomaly.isActive
             ? "Selesai + anomali hilang"
-            : anomaly.isHandled
-              ? "Selesai (tandai)"
-              : "Belum selesai"
+            : anomaly.isSesuaiLapangan
+              ? "Sesuai kondisi lapangan"
+              : anomaly.isHandled
+                ? "Selesai (tandai)"
+                : "Belum selesai"
         }}
       </span>
     </td>
     <td class="anomaly-cell anomaly-cell--action">
-      <button
+      <div
         v-if="anomaly.isActive"
-        type="button"
-        class="anomaly-action"
-        :disabled="saving"
-        @click="emit('toggle-handling')"
+        class="anomaly-actions"
       >
-        <UIcon
-          v-if="saving"
-          name="i-lucide-loader-circle"
-          class="loading-icon"
-          aria-hidden="true"
-        />
-        {{
-          saving
-            ? "Memproses"
-            : anomaly.isHandled
-              ? "Batalkan"
-              : "Tandai selesai"
-        }}
-      </button>
+        <button
+          v-if="anomaly.isSesuaiLapangan"
+          type="button"
+          class="anomaly-action"
+          :disabled="saving"
+          @click="emit('toggle-field-condition')"
+        >
+          <UIcon
+            v-if="saving"
+            name="i-lucide-loader-circle"
+            class="anomaly-action__icon loading-icon"
+            aria-hidden="true"
+          />
+          <UIcon
+            v-else
+            name="i-lucide-undo-2"
+            class="anomaly-action__icon"
+            aria-hidden="true"
+          />
+          {{ saving ? "Memproses" : "Batalkan" }}
+        </button>
+        <button
+          v-else-if="anomaly.isHandled"
+          type="button"
+          class="anomaly-action"
+          :disabled="saving"
+          @click="emit('toggle-handling')"
+        >
+          <UIcon
+            v-if="saving"
+            name="i-lucide-loader-circle"
+            class="anomaly-action__icon loading-icon"
+            aria-hidden="true"
+          />
+          <UIcon
+            v-else
+            name="i-lucide-undo-2"
+            class="anomaly-action__icon"
+            aria-hidden="true"
+          />
+          {{ saving ? "Memproses" : "Batalkan" }}
+        </button>
+        <template v-else>
+          <button
+            type="button"
+            class="anomaly-action"
+            :disabled="saving"
+            @click="emit('toggle-handling')"
+          >
+            <UIcon
+              v-if="saving"
+              name="i-lucide-loader-circle"
+              class="anomaly-action__icon loading-icon"
+              aria-hidden="true"
+            />
+            <UIcon
+              v-else
+              name="i-lucide-check"
+              class="anomaly-action__icon"
+              aria-hidden="true"
+            />
+            {{ saving ? "Memproses" : "Tandai selesai" }}
+          </button>
+          <button
+            type="button"
+            class="anomaly-action"
+            :disabled="saving"
+            @click="emit('toggle-field-condition')"
+          >
+            <UIcon
+              name="i-lucide-flag"
+              class="anomaly-action__icon"
+              aria-hidden="true"
+            />
+            Sesuai kondisi lapangan
+          </button>
+        </template>
+      </div>
     </td>
   </tr>
 </template>
@@ -191,23 +257,31 @@ const emit = defineEmits<{
 }
 
 .anomaly-cell--code {
-  width: 10rem;
+  width: 4.5rem;
 }
 
 .anomaly-cell--description {
-  width: 24%;
+  width: 19%;
 }
 
 .anomaly-cell--data {
-  width: 38%;
+  width: auto;
 }
 
 .anomaly-cell--status {
-  width: 5.5rem;
+  width: 10.5rem;
 }
 
 .anomaly-cell--action {
-  width: 8.5rem;
+  width: 12rem;
+}
+
+.anomaly-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .anomaly-code {
@@ -258,6 +332,7 @@ const emit = defineEmits<{
 .anomaly-action {
   position: relative;
   display: inline-flex;
+  width: 100%;
   min-height: 2rem;
   align-items: center;
   gap: var(--space-1);
@@ -270,7 +345,8 @@ const emit = defineEmits<{
   font-size: var(--text-xs);
   font-weight: 500;
   line-height: 1.2;
-  white-space: nowrap;
+  text-align: start;
+  white-space: normal;
   transition:
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
@@ -278,8 +354,14 @@ const emit = defineEmits<{
 
 .anomaly-action::before {
   position: absolute;
-  inset: -0.375rem -0.5rem;
+  inset: -0.125rem -0.25rem;
   content: '';
+}
+
+.anomaly-action__icon {
+  flex: 0 0 auto;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .anomaly-action:disabled {
@@ -360,6 +442,12 @@ const emit = defineEmits<{
 .handling-status--pending {
   border-color: var(--color-error);
   background: var(--color-error);
+  color: var(--color-accent-ink);
+}
+
+.handling-status--field-condition {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
   color: var(--color-accent-ink);
 }
 

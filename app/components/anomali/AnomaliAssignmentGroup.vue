@@ -1,32 +1,63 @@
 <script setup lang="ts">
 import AnomaliRow from './AnomaliRow.vue'
-import type { AnomalyListItem, AssignmentAnomalyGroup } from '~/types/anomali'
+import type {
+  AnomalyListItem,
+  AssignmentAnomalyGroup,
+  ExecutorOption
+} from '~/types/anomali'
 
 const props = defineProps<{
   group: AssignmentAnomalyGroup
   expanded: boolean
   saving: Record<string, boolean>
-  savingAssignment: boolean
+  savingExecutor: boolean
   expandedData: Record<string, boolean>
+  executorOptions: ExecutorOption[]
 }>()
 
 const emit = defineEmits<{
   'toggle-assignment': []
   'toggle-data': [id: string]
   'toggle-handling': [anomaly: AnomalyListItem]
-  'toggle-assignment-handling': []
+  'toggle-field-condition': [anomaly: AnomalyListItem]
+  'update-executor': [eksekutorId: string | null]
 }>()
 
 const detailsId = computed(
   () => `assignment-${encodeURIComponent(props.group.assignmentId)}`
 )
-const activeAnomalies = computed(() =>
-  props.group.anomalies.filter(anomaly => anomaly.isActive)
+const hasActiveAnomalies = computed(() =>
+  props.group.anomalies.some(anomaly => anomaly.isActive)
 )
-const hasActiveAnomalies = computed(() => activeAnomalies.value.length > 0)
-const isComplete = computed(
-  () => hasActiveAnomalies.value && activeAnomalies.value.every(anomaly => anomaly.isHandled)
-)
+const UNASSIGNED_EXECUTOR_VALUE = '__unassigned__'
+const executorSelectMenuUi = {
+  base: 'bg-[var(--color-paper)] text-[var(--color-ink-2)] placeholder:text-[var(--color-muted)] ring-[var(--color-rule-2)] hover:bg-[var(--color-paper-2)] disabled:bg-[var(--color-paper)] disabled:text-[var(--color-muted)] disabled:opacity-100',
+  arrow: 'fill-[var(--color-paper)] stroke-[var(--color-muted)]',
+  content: 'bg-[var(--color-paper)] text-[var(--color-ink-2)] ring-[var(--color-rule-2)] shadow-lg',
+  item: 'text-[var(--color-ink-2)] data-highlighted:not-data-disabled:text-[var(--color-ink)] data-highlighted:not-data-disabled:before:bg-[var(--color-paper-2)]'
+}
+const executorItems = computed(() => [
+  { label: 'Belum ditugaskan', value: UNASSIGNED_EXECUTOR_VALUE },
+  ...props.executorOptions
+    .filter(executor => executor.id.trim().length > 0)
+    .map(executor => ({
+      label: executor.nama,
+      value: executor.id.trim()
+    }))
+])
+
+function selectedExecutorValue(): string {
+  return props.group.executor?.id.trim() || UNASSIGNED_EXECUTOR_VALUE
+}
+
+function updateExecutor(value: unknown): void {
+  const executorId = String(value ?? '').trim()
+
+  emit(
+    'update-executor',
+    executorId === UNASSIGNED_EXECUTOR_VALUE ? null : executorId || null
+  )
+}
 
 function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
   const normalized = status?.trim().toUpperCase() ?? ''
@@ -114,6 +145,21 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
         class="cell-secondary"
       >—</span>
     </td>
+    <td class="assignment-cell assignment-cell--executor">
+      <USelectMenu
+        :model-value="selectedExecutorValue()"
+        :items="executorItems"
+        value-key="value"
+        color="neutral"
+        variant="outline"
+        size="sm"
+        class="assignment-executor"
+        :ui="executorSelectMenuUi"
+        :disabled="savingExecutor"
+        placeholder="Pilih eksekutor"
+        @update:model-value="updateExecutor"
+      />
+    </td>
     <td class="assignment-cell assignment-cell--handling">
       <span
         class="handling-progress"
@@ -121,26 +167,6 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
       >
         {{ group.summary.handled }}/{{ group.summary.total }} selesai
       </span>
-      <button
-        type="button"
-        class="assignment-handling-action"
-        :disabled="savingAssignment"
-        @click="emit('toggle-assignment-handling')"
-      >
-        <UIcon
-          v-if="savingAssignment"
-          name="i-lucide-loader-circle"
-          class="loading-icon"
-          aria-hidden="true"
-        />
-        {{
-          savingAssignment
-            ? "Memproses"
-            : isComplete
-              ? "Batalkan semua"
-              : "Tandai semua selesai"
-        }}
-      </button>
     </td>
   </tr>
 
@@ -149,7 +175,7 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
     class="assignment-detail-row"
   >
     <td
-      :colspan="7"
+      :colspan="8"
       class="assignment-detail-cell"
     >
       <div
@@ -159,13 +185,22 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
         <table class="anomaly-table">
           <thead>
             <tr>
-              <th scope="col">
+              <th
+                scope="col"
+                class="anomaly-table__code"
+              >
                 Jenis
               </th>
-              <th scope="col">
+              <th
+                scope="col"
+                class="anomaly-table__description"
+              >
                 Keterangan anomali
               </th>
-              <th scope="col">
+              <th
+                scope="col"
+                class="anomaly-table__data"
+              >
                 Data anomali
               </th>
               <th
@@ -188,9 +223,10 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
               :key="anomaly.id"
               :anomaly="anomaly"
               :expanded="Boolean(expandedData[anomaly.id])"
-              :saving="Boolean(saving[anomaly.id] || savingAssignment)"
+              :saving="Boolean(saving[anomaly.id])"
               @toggle-data="emit('toggle-data', anomaly.id)"
               @toggle-handling="emit('toggle-handling', anomaly)"
+              @toggle-field-condition="emit('toggle-field-condition', anomaly)"
             />
           </tbody>
         </table>
@@ -222,7 +258,15 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
 }
 
 .assignment-cell--handling {
-  min-width: 13.5rem;
+  min-width: 7.5rem;
+}
+
+.assignment-cell--executor {
+  min-width: 11rem;
+}
+
+.assignment-executor {
+  min-width: 10rem;
 }
 
 .cell-primary,
@@ -276,15 +320,13 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
 }
 
 .assignment-toggle:focus-visible,
-.assignment-fasih-link:focus-visible,
-.assignment-handling-action:focus-visible {
+.assignment-fasih-link:focus-visible {
   outline: var(--rule-focus) solid var(--color-focus);
   outline-offset: 2px;
 }
 
 .assignment-toggle:active,
-.assignment-fasih-link:active,
-.assignment-handling-action:active {
+.assignment-fasih-link:active {
   transform: translateY(1px);
 }
 
@@ -312,43 +354,6 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   line-height: 1.35;
-}
-
-.assignment-handling-action {
-  position: relative;
-  display: inline-flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-accent);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--text-xs);
-  font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
-}
-
-.assignment-handling-action::before {
-  position: absolute;
-  inset: -0.375rem -0.5rem;
-  content: '';
-}
-
-.assignment-handling-action:disabled {
-  color: var(--color-muted);
-  cursor: not-allowed;
-}
-
-.loading-icon {
-  animation: assignment-spin 700ms linear infinite;
 }
 
 .assignment-detail-row {
@@ -385,17 +390,23 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
 }
 
 .anomaly-table__status {
-  width: 5.5rem;
+  width: 10.5rem;
 }
 
 .anomaly-table__action {
-  width: 8.5rem;
+  width: 12rem;
 }
 
-@keyframes assignment-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.anomaly-table__code {
+  width: 4.5rem;
+}
+
+.anomaly-table__description {
+  width: 19%;
+}
+
+.anomaly-table__data {
+  width: auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -410,22 +421,13 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
     transform: translateY(-1px);
   }
 
-  .assignment-handling-action:not(:disabled):hover {
-    color: var(--color-ink);
-    transform: translateY(-1px);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .assignment-row,
   .assignment-toggle,
-  .assignment-fasih-link,
-  .assignment-handling-action {
+  .assignment-fasih-link {
     transition-duration: 150ms;
-  }
-
-  .loading-icon {
-    animation-duration: 1.4s;
   }
 }
 
@@ -652,12 +654,6 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
 .handling-progress {
   font-size: var(--text-xs);
   font-weight: 600;
-}
-
-.assignment-handling-action {
-  min-height: 1.5rem;
-  margin-top: 0.125rem;
-  font-size: var(--text-2xs);
 }
 
 .assignment-detail-row {

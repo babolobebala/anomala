@@ -1,7 +1,9 @@
 import {
+  buildAssignmentAnomalyWhere,
   buildAssignmentCountQuery,
   buildAssignmentIdsQuery,
-  parseAnomalyListFilters
+  parseAnomalyListFilters,
+  summarizeAnomalySubset
 } from '../../utils/anomali-query'
 import { prisma } from '../../utils/prisma'
 
@@ -41,42 +43,56 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const rows = await prisma.anomali.findMany({
-    where: {
-      assignmentId: { in: assignmentIds }
-    },
-    select: {
-      id: true,
-      anomalyKey: true,
-      assignmentId: true,
-      namaAssignment: true,
-      nomorBangunan: true,
-      idsbr: true,
-      linkFasihEdit: true,
-      kodeAnomali: true,
-      data: true,
-      catatan: true,
-      statusAlias: true,
-      isActive: true,
-      isHandled: true,
-      handledAt: true,
-      handlingNote: true,
-      masterSls: {
-        select: {
-          idSubsls: true,
-          kecamatan: true,
-          desa: true,
-          namaSls: true,
-          ppl: true,
-          pml: true
+  const [rows, assignmentHandlings] = await Promise.all([
+    prisma.anomali.findMany({
+      where: buildAssignmentAnomalyWhere(assignmentIds, filters),
+      select: {
+        id: true,
+        anomalyKey: true,
+        assignmentId: true,
+        namaAssignment: true,
+        nomorBangunan: true,
+        idsbr: true,
+        linkFasihEdit: true,
+        kodeAnomali: true,
+        data: true,
+        catatan: true,
+        statusAlias: true,
+        isActive: true,
+        isHandled: true,
+        handledAt: true,
+        handlingNote: true,
+        isSesuaiLapangan: true,
+        sesuaiLapanganAt: true,
+        masterSls: {
+          select: {
+            idSubsls: true,
+            kecamatan: true,
+            desa: true,
+            namaSls: true,
+            ppl: true,
+            pml: true
+          }
+        },
+        masterAnomali: {
+          select: { deskripsi: true }
         }
       },
-      masterAnomali: {
-        select: { deskripsi: true }
+      orderBy: [{ assignmentId: 'asc' }, { kodeAnomali: 'asc' }, { id: 'asc' }]
+    }),
+    prisma.assignmentHandling.findMany({
+      where: { assignmentId: { in: assignmentIds } },
+      select: {
+        assignmentId: true,
+        eksekutor: {
+          select: { id: true, nama: true }
+        }
       }
-    },
-    orderBy: [{ assignmentId: 'asc' }, { kodeAnomali: 'asc' }, { id: 'asc' }]
-  })
+    })
+  ])
+  const executorsByAssignment = new Map(
+    assignmentHandlings.map(handling => [handling.assignmentId, handling.eksekutor])
+  )
 
   const groupsByAssignment = new Map<
     string,
@@ -87,6 +103,7 @@ export default defineEventHandler(async (event) => {
       idsbr: string | null
       linkFasihEdit: string | null
       statusAlias: string | null
+      executor: { id: string, nama: string } | null
       wilayah: {
         idSubsls: string
         kecamatan: string
@@ -114,6 +131,8 @@ export default defineEventHandler(async (event) => {
         isHandled: boolean
         handledAt: string | null
         handlingNote: string | null
+        isSesuaiLapangan: boolean
+        sesuaiLapanganAt: string | null
       }>
     }
   >()
@@ -126,6 +145,7 @@ export default defineEventHandler(async (event) => {
       idsbr: row.idsbr,
       linkFasihEdit: row.linkFasihEdit,
       statusAlias: row.statusAlias,
+      executor: executorsByAssignment.get(row.assignmentId) ?? null,
       wilayah: row.masterSls,
       summary: {
         total: 0,
@@ -147,13 +167,13 @@ export default defineEventHandler(async (event) => {
       isActive: row.isActive,
       isHandled: row.isHandled,
       handledAt: row.handledAt?.toISOString() ?? null,
-      handlingNote: row.handlingNote
+      handlingNote: row.handlingNote,
+      isSesuaiLapangan: row.isSesuaiLapangan,
+      sesuaiLapanganAt: row.sesuaiLapanganAt?.toISOString() ?? null
     }
 
     group.anomalies.push(anomaly)
-    group.summary.total++
-    group.summary[row.isHandled ? 'handled' : 'unhandled']++
-    group.summary[row.isActive ? 'active' : 'inactive']++
+    Object.assign(group.summary, summarizeAnomalySubset(group.anomalies))
     groupsByAssignment.set(row.assignmentId, group)
   }
 

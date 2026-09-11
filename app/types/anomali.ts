@@ -10,6 +10,8 @@ export interface AnomalyListItem {
   isHandled: boolean
   handledAt: string | null
   handlingNote: string | null
+  isSesuaiLapangan: boolean
+  sesuaiLapanganAt: string | null
 }
 
 export interface AssignmentAnomalyGroup {
@@ -19,6 +21,7 @@ export interface AssignmentAnomalyGroup {
   idsbr: string | null
   linkFasihEdit: string | null
   statusAlias: string | null
+  executor: ExecutorOption | null
   wilayah: {
     idSubsls: string
     kecamatan: string
@@ -80,10 +83,32 @@ export interface AnomalyAssignmentStatistics {
   disappeared: AnomalyStatisticsMetric
 }
 
+export interface AnomalyRecapItem {
+  kodeAnomali: string
+  deskripsi: string
+  statistics: AnomalyAssignmentStatistics
+}
+
 export interface HandlingResponse {
   id: string
   isHandled: boolean
   handledAt: string | null
+}
+
+export interface FieldConditionResponse {
+  id: string
+  isSesuaiLapangan: boolean
+  sesuaiLapanganAt: string | null
+}
+
+export interface ExecutorOption {
+  id: string
+  nama: string
+}
+
+export interface AssignmentExecutorResponse {
+  assignmentId: string
+  eksekutor: ExecutorOption | null
 }
 
 export interface AssignmentHandlingResponse {

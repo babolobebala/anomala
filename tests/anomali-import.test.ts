@@ -35,6 +35,8 @@ interface StoredAnomali extends AnomaliSourceRecord {
   isActive: boolean
   isHandled: boolean
   handledAt: Date | null
+  isSesuaiLapangan: boolean
+  sesuaiLapanganAt: Date | null
   handledBy: string | null
   handlingNote: string | null
   firstSeenAt: Date
@@ -73,6 +75,8 @@ class FakeDatabase implements AnomaliImportDatabase {
       anomalyKey: string
       isActive: boolean
       isHandled: boolean
+      isSesuaiLapangan: boolean
+      sesuaiLapanganAt: Date | null
       firstSeenAt: Date
       lastSeenAt: Date
     }> }) => {
@@ -81,6 +85,7 @@ class FakeDatabase implements AnomaliImportDatabase {
           ...record,
           id: `anomali-${this.nextId++}`,
           handledAt: null,
+          sesuaiLapanganAt: null,
           handledBy: null,
           handlingNote: null
         })
@@ -204,6 +209,8 @@ function storedAnomaly(
     isActive: true,
     isHandled: false,
     handledAt: null,
+    isSesuaiLapangan: false,
+    sesuaiLapanganAt: null,
     handledBy: null,
     handlingNote: null,
     firstSeenAt: now,
@@ -227,11 +234,18 @@ async function run(): Promise<void> {
     ;['A-1', 'A-2', 'A-3', 'A-4', 'A-5'].forEach(code => database.masterAnomaliValues.add(code))
 
     const existingHandledAt = new Date('2026-01-02T00:00:00.000Z')
+    const existingSesuaiLapanganAt = new Date('2026-01-03T00:00:00.000Z')
     const existing = database.addAnomaly(storedAnomaly('assignment-2', 'A-2', 'Existing data', {
       isHandled: true,
-      handledAt: existingHandledAt
+      handledAt: existingHandledAt,
+      isSesuaiLapangan: true,
+      sesuaiLapanganAt: existingSesuaiLapanganAt
     }))
-    const missing = database.addAnomaly(storedAnomaly('assignment-3', 'A-3', 'Missing data'))
+    const missingSesuaiLapanganAt = new Date('2026-01-04T00:00:00.000Z')
+    const missing = database.addAnomaly(storedAnomaly('assignment-3', 'A-3', 'Missing data', {
+      isSesuaiLapangan: true,
+      sesuaiLapanganAt: missingSesuaiLapanganAt
+    }))
     const manuallyHandledMissingAt = new Date('2026-01-03T00:00:00.000Z')
     const manuallyHandledMissing = database.addAnomaly(storedAnomaly('assignment-5', 'A-5', 'Handled missing data', {
       isHandled: true,
@@ -241,6 +255,8 @@ async function run(): Promise<void> {
       isActive: false,
       isHandled: true,
       handledAt: new Date('2026-01-02T00:00:00.000Z'),
+      isSesuaiLapangan: true,
+      sesuaiLapanganAt: new Date('2026-01-03T00:00:00.000Z'),
       handledBy: 'tester',
       handlingNote: 'Keep this handling state'
     }))
@@ -298,12 +314,18 @@ async function run(): Promise<void> {
 
     assert.equal(applied.applied, true)
     assert.ok(created)
+    assert.equal(created.isSesuaiLapangan, false)
+    assert.equal(created.sesuaiLapanganAt, null)
     assert.equal(existing.isActive, true)
     assert.equal(existing.isHandled, true)
     assert.equal(existing.handledAt, existingHandledAt)
+    assert.equal(existing.isSesuaiLapangan, true)
+    assert.equal(existing.sesuaiLapanganAt, existingSesuaiLapanganAt)
     assert.equal(missing.isActive, false)
     assert.equal(missing.isHandled, true)
     assert.equal(missing.handledAt?.toISOString(), '2026-02-01T00:00:00.000Z')
+    assert.equal(missing.isSesuaiLapangan, true)
+    assert.equal(missing.sesuaiLapanganAt, missingSesuaiLapanganAt)
     assert.equal(manuallyHandledMissing.isActive, false)
     assert.equal(manuallyHandledMissing.isHandled, true)
     assert.equal(manuallyHandledMissing.handledAt, manuallyHandledMissingAt)
@@ -311,6 +333,8 @@ async function run(): Promise<void> {
     assert.equal(reappeared.isHandled, false)
     assert.equal(reappeared.firstSeenAt, reappearedFirstSeenAt)
     assert.equal(reappeared.handledAt, null)
+    assert.equal(reappeared.isSesuaiLapangan, true)
+    assert.equal(reappeared.sesuaiLapanganAt?.toISOString(), '2026-01-03T00:00:00.000Z')
     assert.equal(reappeared.handledBy, 'tester')
     assert.equal(reappeared.handlingNote, 'Keep this handling state')
 

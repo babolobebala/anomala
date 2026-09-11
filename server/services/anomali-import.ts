@@ -57,6 +57,8 @@ interface ExistingAnomali {
   isActive: boolean
   isHandled: boolean
   handledAt: Date | null
+  isSesuaiLapangan: boolean
+  sesuaiLapanganAt: Date | null
 }
 
 export interface AnomaliImportCounts {
@@ -121,6 +123,8 @@ interface AnomaliDelegate {
       isActive: true
       isHandled: true
       handledAt: true
+      isSesuaiLapangan: true
+      sesuaiLapanganAt: true
     }
   }): Promise<ExistingAnomali[]>
   createMany(args: {
@@ -128,6 +132,8 @@ interface AnomaliDelegate {
       anomalyKey: string
       isActive: boolean
       isHandled: boolean
+      isSesuaiLapangan: boolean
+      sesuaiLapanganAt: Date | null
       firstSeenAt: Date
       lastSeenAt: Date
     }>
@@ -466,7 +472,9 @@ async function findExistingAnomali(database: AnomaliImportDatabase, anomalyKeys:
         anomalyKey: true,
         isActive: true,
         isHandled: true,
-        handledAt: true
+        handledAt: true,
+        isSesuaiLapangan: true,
+        sesuaiLapanganAt: true
       }
     })
 
@@ -507,6 +515,8 @@ function createData(record: ParsedAnomaliRecord, timestamp: Date): AnomaliSource
   anomalyKey: string
   isActive: boolean
   isHandled: boolean
+  isSesuaiLapangan: boolean
+  sesuaiLapanganAt: Date | null
   firstSeenAt: Date
   lastSeenAt: Date
 } {
@@ -524,6 +534,8 @@ function createData(record: ParsedAnomaliRecord, timestamp: Date): AnomaliSource
     anomalyKey: record.anomalyKey,
     isActive: true,
     isHandled: false,
+    isSesuaiLapangan: false,
+    sesuaiLapanganAt: null,
     firstSeenAt: timestamp,
     lastSeenAt: timestamp
   }
@@ -665,7 +677,9 @@ export async function importAnomaliWorkbook(options: AnomaliImportOptions): Prom
       anomalyKey: true,
       isActive: true,
       isHandled: true,
-      handledAt: true
+      handledAt: true,
+      isSesuaiLapangan: true,
+      sesuaiLapanganAt: true
     }
   })
   const disappearedRows = activeRows.filter(row => !sourceKeySet.has(row.anomalyKey))

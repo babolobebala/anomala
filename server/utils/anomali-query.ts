@@ -20,6 +20,20 @@ export interface AnomalyListFilters {
   completionStatus?: AnomalyCompletionStatus
 }
 
+export interface AnomalyStatusRecord {
+  isActive: boolean
+  isHandled: boolean
+  isSesuaiLapangan: boolean
+}
+
+export interface AnomalySubsetSummary {
+  total: number
+  handled: number
+  unhandled: number
+  active: number
+  inactive: number
+}
+
 function queryString(value: QueryValue): string | undefined {
   const candidate = Array.isArray(value) ? value[0] : value
   const normalized = candidate?.trim()
@@ -122,6 +136,39 @@ export function buildAnomaliWhere(filters: AnomalyListFilters): Prisma.AnomaliWh
   return where
 }
 
+export function buildAssignmentAnomalyWhere(
+  assignmentIds: string[],
+  filters: Pick<AnomalyListFilters, 'kodeAnomali'>
+): Prisma.AnomaliWhereInput {
+  return {
+    assignmentId: { in: assignmentIds },
+    ...(filters.kodeAnomali ? { kodeAnomali: filters.kodeAnomali } : {})
+  }
+}
+
+export function isOperationallyResolved(anomaly: AnomalyStatusRecord): boolean {
+  return anomaly.isHandled || anomaly.isSesuaiLapangan
+}
+
+export function isUnresolvedActiveAnomaly(anomaly: AnomalyStatusRecord): boolean {
+  return anomaly.isActive && !isOperationallyResolved(anomaly)
+}
+
+export function summarizeAnomalySubset(
+  anomalies: readonly AnomalyStatusRecord[]
+): AnomalySubsetSummary {
+  const active = anomalies.filter(anomaly => anomaly.isActive)
+  const unhandled = active.filter(isUnresolvedActiveAnomaly).length
+
+  return {
+    total: anomalies.length,
+    handled: anomalies.length - unhandled,
+    unhandled,
+    active: active.length,
+    inactive: anomalies.length - active.length
+  }
+}
+
 function contextualConditions(filters: AnomalyListFilters): Prisma.Sql[] {
   const conditions: Prisma.Sql[] = []
 
@@ -168,15 +215,22 @@ function contextualConditions(filters: AnomalyListFilters): Prisma.Sql[] {
 
 function addCompletionStatusCondition(
   conditions: Prisma.Sql[],
+  filters: AnomalyListFilters,
   completionStatus: AnomalyCompletionStatus | undefined
 ): void {
+  const completionCodeCondition = filters.kodeAnomali
+    ? Prisma.sql`AND completion.kodeAnomali = ${filters.kodeAnomali}`
+    : Prisma.empty
+
   if (completionStatus === 'unhandled') {
     conditions.push(Prisma.sql`EXISTS (
       SELECT 1
       FROM anomali AS completion
       WHERE completion.assignmentId = a.assignmentId
+        ${completionCodeCondition}
         AND completion.isActive = true
         AND completion.isHandled = false
+        AND completion.isSesuaiLapangan = false
     )`)
   }
 
@@ -185,13 +239,16 @@ function addCompletionStatusCondition(
       SELECT 1
       FROM anomali AS completion
       WHERE completion.assignmentId = a.assignmentId
+        ${completionCodeCondition}
         AND completion.isActive = true
     ) AND NOT EXISTS (
       SELECT 1
       FROM anomali AS completion
       WHERE completion.assignmentId = a.assignmentId
+        ${completionCodeCondition}
         AND completion.isActive = true
         AND completion.isHandled = false
+        AND completion.isSesuaiLapangan = false
     )`)
   }
 
@@ -200,6 +257,7 @@ function addCompletionStatusCondition(
       SELECT 1
       FROM anomali AS completion
       WHERE completion.assignmentId = a.assignmentId
+        ${completionCodeCondition}
         AND completion.isActive = true
     )`)
   }
@@ -208,7 +266,7 @@ function addCompletionStatusCondition(
 export function buildAssignmentCountQuery(filters: AnomalyListFilters): Prisma.Sql {
   const conditions = contextualConditions(filters)
 
-  addCompletionStatusCondition(conditions, filters.completionStatus)
+  addCompletionStatusCondition(conditions, filters, filters.completionStatus)
 
   const whereClause = conditions.length > 0
     ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
@@ -222,22 +280,26 @@ export function buildAssignmentCountQuery(filters: AnomalyListFilters): Prisma.S
   `
 }
 
-type AnomalyMetricStatus = 'unhandled' | 'handled' | 'disappeared'
+export type AnomalyMetricStatus = 'unhandled' | 'handled' | 'disappeared'
+
+export function anomalyMetricCondition(status: AnomalyMetricStatus): Prisma.Sql {
+  if (status === 'unhandled') {
+    return Prisma.sql`a.isActive = true AND a.isHandled = false AND a.isSesuaiLapangan = false`
+  }
+
+  if (status === 'handled') {
+    return Prisma.sql`a.isActive = true AND (a.isHandled = true OR a.isSesuaiLapangan = true)`
+  }
+
+  return Prisma.sql`a.isActive = false AND a.isHandled = true`
+}
 
 function addAnomalyMetricCondition(
   conditions: Prisma.Sql[],
   anomalyStatus: AnomalyMetricStatus | undefined
 ): void {
-  if (anomalyStatus === 'unhandled') {
-    conditions.push(Prisma.sql`a.isActive = true AND a.isHandled = false`)
-  }
-
-  if (anomalyStatus === 'handled') {
-    conditions.push(Prisma.sql`a.isActive = true AND a.isHandled = true`)
-  }
-
-  if (anomalyStatus === 'disappeared') {
-    conditions.push(Prisma.sql`a.isActive = false AND a.isHandled = true`)
+  if (anomalyStatus) {
+    conditions.push(anomalyMetricCondition(anomalyStatus))
   }
 }
 
@@ -295,13 +357,55 @@ export function buildAssignmentStatisticsQueries(filters: AnomalyListFilters): {
   }
 }
 
+export function buildAnomalyRecapQuery(): Prisma.Sql {
+  const unhandledCondition = anomalyMetricCondition('unhandled')
+  const handledCondition = anomalyMetricCondition('handled')
+  const disappearedCondition = anomalyMetricCondition('disappeared')
+
+  return Prisma.sql`
+    SELECT
+      m.kodeAnomali,
+      m.deskripsi,
+      COUNT(DISTINCT a.assignmentId) AS totalAssignments,
+      COUNT(a.id) AS totalAnomalies,
+      COUNT(DISTINCT CASE
+        WHEN assignment_status.hasUnhandled = 1 THEN a.assignmentId
+      END) AS unhandledAssignments,
+      SUM(CASE WHEN ${unhandledCondition} THEN 1 ELSE 0 END) AS unhandledAnomalies,
+      COUNT(DISTINCT CASE
+        WHEN assignment_status.hasActive = 1
+          AND assignment_status.hasUnhandled = 0
+        THEN a.assignmentId
+      END) AS handledAssignments,
+      SUM(CASE WHEN ${handledCondition} THEN 1 ELSE 0 END) AS handledAnomalies,
+      COUNT(DISTINCT CASE
+        WHEN assignment_status.hasActive = 0 THEN a.assignmentId
+      END) AS disappearedAssignments,
+      SUM(CASE WHEN ${disappearedCondition} THEN 1 ELSE 0 END) AS disappearedAnomalies
+    FROM master_anomali AS m
+    LEFT JOIN anomali AS a ON a.kodeAnomali = m.kodeAnomali
+    LEFT JOIN (
+      SELECT
+        a.kodeAnomali,
+        a.assignmentId,
+        MAX(CASE WHEN a.isActive = true THEN 1 ELSE 0 END) AS hasActive,
+        MAX(CASE WHEN ${unhandledCondition} THEN 1 ELSE 0 END) AS hasUnhandled
+      FROM anomali AS a
+      GROUP BY a.kodeAnomali, a.assignmentId
+    ) AS assignment_status ON assignment_status.kodeAnomali = a.kodeAnomali
+      AND assignment_status.assignmentId = a.assignmentId
+    GROUP BY m.kodeAnomali, m.deskripsi
+    ORDER BY m.kodeAnomali ASC
+  `
+}
+
 export function buildAssignmentIdsQuery(
   filters: AnomalyListFilters,
   page: number
 ): Prisma.Sql {
   const conditions = contextualConditions(filters)
 
-  addCompletionStatusCondition(conditions, filters.completionStatus)
+  addCompletionStatusCondition(conditions, filters, filters.completionStatus)
 
   const whereClause = conditions.length > 0
     ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
@@ -328,5 +432,10 @@ export function masterSlsWhere(filters: Pick<AnomalyListFilters, 'kecamatan' | '
 }
 
 export function activeAssignmentHandlingWhere(assignmentId: string): Prisma.AnomaliWhereInput {
-  return { assignmentId, isActive: true }
+  return {
+    assignmentId,
+    isActive: true,
+    isHandled: false,
+    isSesuaiLapangan: false
+  }
 }

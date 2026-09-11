@@ -25,6 +25,7 @@ useSeoMeta({
 
 <template>
   <UApp>
+    <RouteLoadingIndicator />
     <UMain>
       <NuxtPage />
     </UMain>

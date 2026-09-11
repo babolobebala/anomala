@@ -19,6 +19,7 @@ logs
 .DS_Store
 .fleet
 .idea
+.deploy-repo/
 
 # Local env files
 .env
