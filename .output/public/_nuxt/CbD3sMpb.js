@@ -1,0 +1,1 @@
+import{G as e,cn as t}from"./ZCKV_C7z.js";import{u as n}from"./DekwIkxV.js";var r=e({__name:`index`,async setup(e){let r,i;return[r,i]=t(()=>n(`/anomali`,{redirectCode:302})),await r,i(),()=>{}}});export{r as default};
