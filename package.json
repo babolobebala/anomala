@@ -13,7 +13,9 @@
     "import:anomali": "tsx scripts/import-anomali.ts",
     "test:anomali-import": "tsx tests/anomali-import.test.ts",
     "import:kbli": "tsx scripts/import-kbli.ts",
-    "test:kbli-import": "tsx tests/kbli-import.test.ts"
+    "test:kbli-import": "tsx tests/kbli-import.test.ts",
+    "test:kbli-query": "tsx tests/kbli-query.test.ts",
+    "test:kbli-recap": "tsx tests/kbli-recap.test.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.130",

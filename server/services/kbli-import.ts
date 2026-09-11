@@ -108,6 +108,8 @@ interface KbliDelegate {
       kbliKey: string
       firstSeenAt: Date
       lastSeenAt: Date
+      isHandled: boolean
+      handledAt: Date | null
     }>
   }): Promise<unknown>
   update(args: {
@@ -457,6 +459,8 @@ function createData(record: ParsedKbliRecord, timestamp: Date): KbliSourceRecord
   kbliKey: string
   firstSeenAt: Date
   lastSeenAt: Date
+  isHandled: boolean
+  handledAt: Date | null
 } {
   return {
     assignmentId: record.assignmentId,
@@ -471,10 +475,17 @@ function createData(record: ParsedKbliRecord, timestamp: Date): KbliSourceRecord
     catatan: record.catatan,
     kbliKey: record.kbliKey,
     firstSeenAt: timestamp,
-    lastSeenAt: timestamp
+    lastSeenAt: timestamp,
+    isHandled: false,
+    handledAt: null
   }
 }
 
+/**
+ * Cumulative refresh of an existing KBLI key. Manual handling state is
+ * intentionally omitted so re-importing a workbook can never reset it, and rows
+ * omitted from the workbook are left completely untouched.
+ */
 function updateData(record: ParsedKbliRecord, timestamp: Date): KbliSourceRecord & { lastSeenAt: Date } {
   return {
     assignmentId: record.assignmentId,

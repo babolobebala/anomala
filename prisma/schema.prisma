@@ -125,8 +125,12 @@ model Kbli {
 
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  isHandled Boolean   @default(false)
+  handledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   masterSls         MasterSls         @relation(fields: [idSubsls], references: [idSubsls])
   masterKbliTemuan  MasterKbliTemuan  @relation(fields: [kategori], references: [kode])
@@ -134,6 +138,7 @@ model Kbli {
   @@index([assignmentId])
   @@index([idSubsls])
   @@index([kategori])
+  @@index([isHandled])
   @@map("kbli")
 }
 

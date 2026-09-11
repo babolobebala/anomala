@@ -88,7 +88,6 @@ const unhandledFilters = parseAnomalyListFilters({ completionStatus: 'unhandled'
 const handledFilters = parseAnomalyListFilters({ completionStatus: 'handled' })
 const disappearedFilters = parseAnomalyListFilters({ completionStatus: 'disappeared' })
 const ak02Filters = parseAnomalyListFilters({ kodeAnomali: 'AK02' })
-const ak03Filters = parseAnomalyListFilters({ kodeAnomali: 'AK03' })
 const ak03HandledFilters = parseAnomalyListFilters({
   kodeAnomali: 'AK03',
   completionStatus: 'handled'

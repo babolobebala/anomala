@@ -35,6 +35,8 @@ interface StoredKbli extends KbliSourceRecord {
   kbliKey: string
   firstSeenAt: Date
   lastSeenAt: Date
+  isHandled: boolean
+  handledAt: Date | null
 }
 
 class FakeDatabase implements KbliImportDatabase {
@@ -64,6 +66,8 @@ class FakeDatabase implements KbliImportDatabase {
       kbliKey: string
       firstSeenAt: Date
       lastSeenAt: Date
+      isHandled: boolean
+      handledAt: Date | null
     }> }) => {
       data.forEach((record) => {
         this.kbliRows.set(record.kbliKey, {
@@ -171,6 +175,8 @@ function storedKbli(
     kbliKey: createKbliKey(assignmentId, kategori, data),
     firstSeenAt: timestamp,
     lastSeenAt: timestamp,
+    isHandled: false,
+    handledAt: null,
     ...overrides
   }
 }
@@ -238,6 +244,18 @@ async function run(): Promise<void> {
     assert.ok(beta)
     assert.equal(alpha.firstSeenAt.toISOString(), firstImportAt.toISOString())
     assert.equal(alpha.lastSeenAt.toISOString(), firstImportAt.toISOString())
+    // New KBLI keys always start unresolved.
+    assert.equal(alpha.isHandled, false)
+    assert.equal(alpha.handledAt, null)
+    assert.equal(beta.isHandled, false)
+    assert.equal(beta.handledAt, null)
+
+    // Manual handling happens after import, exactly like the operational UI.
+    const alphaHandledAt = new Date('2026-02-01T12:00:00.000Z')
+    alpha.isHandled = true
+    alpha.handledAt = alphaHandledAt
+    beta.isHandled = true
+    beta.handledAt = new Date('2026-02-01T13:00:00.000Z')
     const betaBeforeOmission = JSON.stringify(beta)
 
     const refreshAt = new Date('2026-02-02T00:00:00.000Z')
@@ -258,6 +276,11 @@ async function run(): Promise<void> {
 
     assert.equal(refresh.counts.new, 0)
     assert.equal(refresh.counts.existing, 1)
+    // A cumulative refresh never resets manual handling state.
+    assert.equal(alpha.isHandled, true)
+    assert.equal(alpha.handledAt?.toISOString(), alphaHandledAt.toISOString())
+    // Rows omitted from the workbook keep their handling state too.
+    assert.equal(beta.isHandled, true)
     assert.equal(alpha.firstSeenAt.toISOString(), firstImportAt.toISOString())
     assert.equal(alpha.lastSeenAt.toISOString(), refreshAt.toISOString())
     assert.equal(alpha.statusAlias, 'Closed')
@@ -278,6 +301,8 @@ async function run(): Promise<void> {
     assert.equal(newData.counts.new, 1)
     assert.notEqual(alphaKey, gammaKey)
     assert.ok(database.kbliRows.has(gammaKey))
+    assert.equal(database.kbliRows.get(gammaKey)?.isHandled, false)
+    assert.equal(database.kbliRows.get(gammaKey)?.handledAt, null)
 
     const conflictingPath = await writeWorkbook(directory, 'conflicting', [
       sourceRow({ DATA: 'Conflicting data', catatan: 'first' }),
