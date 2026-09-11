@@ -44,7 +44,7 @@ const emit = defineEmits<{
             ? 'handling-status--pending'
             : anomaly.isActive && anomaly.isSesuaiLapangan
               ? 'handling-status--field-condition'
-            : 'handling-status--done'
+              : 'handling-status--done'
         "
       >
         {{

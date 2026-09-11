@@ -18,6 +18,7 @@ model MasterSls {
   updatedAt DateTime  @updatedAt
 
   anomalies Anomali[]
+  kbli      Kbli[]
 
   @@map("master_sls")
 }
@@ -38,8 +39,18 @@ model MasterEksekutor {
   nama String
 
   assignmentHandlings AssignmentHandling[]
+  kbliHandlings       KbliHandling[]
 
   @@map("master_eksekutor")
+}
+
+model MasterKbliTemuan {
+  kode      String @id
+  deskripsi String?
+
+  kbli Kbli[]
+
+  @@map("master_kbli_temuan")
 }
 
 model AssignmentHandling {
@@ -94,4 +105,45 @@ model Anomali {
   @@index([isHandled])
   @@index([isSesuaiLapangan])
   @@map("anomali")
+}
+
+model Kbli {
+  id      String @id @default(cuid())
+  kbliKey String @unique
+
+  assignmentId String
+  idSubsls     String
+  kategori     String
+
+  statusAlias    String?
+  namaAssignment String?
+  nomorBangunan  String?
+  idsbr          String?
+  linkFasihEdit  String?
+  data           String  @db.Text
+  catatan        String? @db.Text
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  masterSls         MasterSls         @relation(fields: [idSubsls], references: [idSubsls])
+  masterKbliTemuan  MasterKbliTemuan  @relation(fields: [kategori], references: [kode])
+
+  @@index([assignmentId])
+  @@index([idSubsls])
+  @@index([kategori])
+  @@map("kbli")
+}
+
+model KbliHandling {
+  assignmentId String @id
+  eksekutorId  String?
+  updatedAt    DateTime @updatedAt
+
+  eksekutor MasterEksekutor? @relation(fields: [eksekutorId], references: [id], onDelete: SetNull)
+
+  @@index([eksekutorId])
+  @@map("kbli_handling")
 }
