@@ -11,7 +11,10 @@
     "typecheck": "nuxt typecheck",
     "db:generate": "prisma generate",
     "import:anomali": "tsx scripts/import-anomali.ts",
+    "import:tidak-ditemukan": "tsx scripts/import-tidak-ditemukan.ts",
     "test:anomali-import": "tsx tests/anomali-import.test.ts",
+    "test:tidak-ditemukan-import": "tsx tests/tidak-ditemukan-import.test.ts",
+    "test:tidak-ditemukan-query": "tsx tests/tidak-ditemukan-query.test.ts",
     "test:anomali-recap": "tsx tests/anomali-recap.test.ts",
     "import:kbli": "tsx scripts/import-kbli.ts",
     "test:kbli-import": "tsx tests/kbli-import.test.ts",
@@ -26,6 +29,7 @@
     "@prisma/client": "^7.10.0",
     "docx-templates": "^4.15.0",
     "dotenv": "^17.4.2",
+    "jszip": "^3.10.2",
     "nuxt": "^4.5.2",
     "tailwindcss": "^4.3.3",
     "xlsx": "^0.18.5"

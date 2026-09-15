@@ -1,3 +1,3 @@
 <script setup lang="ts">
-await navigateTo('/anomali', { redirectCode: 302 })
+await navigateTo('/tidak-ditemukan', { redirectCode: 302 })
 </script>

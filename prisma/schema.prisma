@@ -19,6 +19,8 @@ model MasterSls {
 
   anomalies Anomali[]
   kbli      Kbli[]
+  tidakDitemukanAssignments TidakDitemukanAssignment[]
+  tidakDitemukanSlsStatus   TidakDitemukanSlsStatus?
 
   @@map("master_sls")
 }
@@ -153,4 +155,35 @@ model KbliHandling {
 
   @@index([eksekutorId])
   @@map("kbli_handling")
+}
+
+model TidakDitemukanAssignment {
+  id             String @id @default(cuid())
+  idSubsls       String
+  namaAssignment String
+
+  masterSls MasterSls @relation(fields: [idSubsls], references: [idSubsls])
+
+  @@index([idSubsls])
+  @@map("tidak_ditemukan_assignment")
+}
+
+model TidakDitemukanSlsStatus {
+  idSubsls  String   @id
+  isSelesai Boolean  @default(false)
+  selesaiAt DateTime?
+
+  masterSls MasterSls @relation(fields: [idSubsls], references: [idSubsls])
+
+  @@map("tidak_ditemukan_slsstatus")
+}
+
+model TidakDitemukanWaktuImport {
+  id               String   @id @default(cuid())
+  importedAt       DateTime
+  namaFile         String
+  jumlahAssignment Int
+  jumlahSls        Int
+
+  @@map("tidak_ditemukan_waktu_import")
 }

@@ -2,6 +2,7 @@
 const route = useRoute()
 
 const navItems = [
+  { label: 'Pengesahan Tidak Ditemukan', to: '/tidak-ditemukan' },
   { label: 'Anomali', to: '/anomali' },
   { label: 'Rekap Anomali', to: '/rekap-anomali' },
   { label: 'KBLI', to: '/kbli' },
