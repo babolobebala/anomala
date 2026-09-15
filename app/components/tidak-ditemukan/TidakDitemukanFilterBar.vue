@@ -35,7 +35,10 @@ function update(field: keyof TidakDitemukanFilterState, value: string): void {
 </script>
 
 <template>
-  <section class="filters" aria-label="Filter Tidak Ditemukan">
+  <section
+    class="filters"
+    aria-label="Filter Tidak Ditemukan"
+  >
     <UInput
       :model-value="search"
       icon="i-lucide-search"
@@ -46,30 +49,102 @@ function update(field: keyof TidakDitemukanFilterState, value: string): void {
       :ui="lightInputUi"
       @update:model-value="emit('update:search', String($event ?? ''))"
     />
-    <select :value="filters.completionStatus" aria-label="Status" @change="update('completionStatus', ($event.target as HTMLSelectElement).value)">
-      <option value="">Semua status</option>
-      <option value="unresolved">Belum selesai</option>
-      <option value="completed">Selesai</option>
+    <select
+      :value="filters.completionStatus"
+      aria-label="Status"
+      @change="update('completionStatus', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">
+        Semua status
+      </option>
+      <option value="unresolved">
+        Belum selesai
+      </option>
+      <option value="completed">
+        Selesai
+      </option>
     </select>
-    <select :value="filters.kecamatan" aria-label="Kecamatan" @change="update('kecamatan', ($event.target as HTMLSelectElement).value)">
-      <option value="">Semua kecamatan</option>
-      <option v-for="item in options?.kecamatan" :key="item" :value="item">{{ item }}</option>
+    <select
+      :value="filters.kecamatan"
+      aria-label="Kecamatan"
+      @change="update('kecamatan', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">
+        Semua kecamatan
+      </option>
+      <option
+        v-for="item in options?.kecamatan"
+        :key="item"
+        :value="item"
+      >
+        {{ item }}
+      </option>
     </select>
-    <select :value="filters.desa" :disabled="!filters.kecamatan" aria-label="Desa" @change="update('desa', ($event.target as HTMLSelectElement).value)">
-      <option value="">Semua desa</option>
-      <option v-for="item in options?.desa" :key="item" :value="item">{{ item }}</option>
+    <select
+      :value="filters.desa"
+      :disabled="!filters.kecamatan"
+      aria-label="Desa"
+      @change="update('desa', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">
+        Semua desa
+      </option>
+      <option
+        v-for="item in options?.desa"
+        :key="item"
+        :value="item"
+      >
+        {{ item }}
+      </option>
     </select>
-    <select :value="filters.namaSls" :disabled="!filters.desa" aria-label="SLS" @change="update('namaSls', ($event.target as HTMLSelectElement).value)">
-      <option value="">Semua SLS</option>
-      <option v-for="item in options?.namaSls" :key="item" :value="item">{{ item }}</option>
+    <select
+      :value="filters.namaSls"
+      :disabled="!filters.desa"
+      aria-label="SLS"
+      @change="update('namaSls', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">
+        Semua SLS
+      </option>
+      <option
+        v-for="item in options?.namaSls"
+        :key="item"
+        :value="item"
+      >
+        {{ item }}
+      </option>
     </select>
-    <select :value="filters.ppl" aria-label="PPL" @change="update('ppl', ($event.target as HTMLSelectElement).value)">
-      <option value="">Semua PPL</option>
-      <option v-for="item in options?.ppl" :key="item" :value="item">{{ item }}</option>
+    <select
+      :value="filters.ppl"
+      aria-label="PPL"
+      @change="update('ppl', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">
+        Semua PPL
+      </option>
+      <option
+        v-for="item in options?.ppl"
+        :key="item"
+        :value="item"
+      >
+        {{ item }}
+      </option>
     </select>
-    <select :value="filters.pml" aria-label="PML" @change="update('pml', ($event.target as HTMLSelectElement).value)">
-      <option value="">Semua PML</option>
-      <option v-for="item in options?.pml" :key="item" :value="item">{{ item }}</option>
+    <select
+      :value="filters.pml"
+      aria-label="PML"
+      @change="update('pml', ($event.target as HTMLSelectElement).value)"
+    >
+      <option value="">
+        Semua PML
+      </option>
+      <option
+        v-for="item in options?.pml"
+        :key="item"
+        :value="item"
+      >
+        {{ item }}
+      </option>
     </select>
   </section>
 </template>

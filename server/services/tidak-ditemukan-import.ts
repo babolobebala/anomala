@@ -19,8 +19,6 @@ const APPLY_TRANSACTION_OPTIONS = {
   timeout: 900_000
 }
 
-type SourceColumn = keyof typeof SOURCE_COLUMNS
-
 export interface TidakDitemukanSourceRecord {
   idSubsls: string
   namaAssignment: string

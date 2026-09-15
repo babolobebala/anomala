@@ -2,26 +2,71 @@
 import type { TidakDitemukanSlsGroup } from '~/types/tidak-ditemukan'
 
 const props = defineProps<{ group: TidakDitemukanSlsGroup, expanded: boolean, saving: boolean }>()
-const emit = defineEmits<{ toggle: [], 'update-status': [isSelesai: boolean] }>()
+const emit = defineEmits<{ 'toggle': [], 'update-status': [isSelesai: boolean] }>()
 const detailsId = computed(() => `tidak-ditemukan-${encodeURIComponent(props.group.idSubsls)}`)
 </script>
 
 <template>
   <tr class="sls-row">
-    <td><UButton color="neutral" variant="ghost" size="sm" :icon="expanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" :aria-controls="detailsId" :aria-expanded="expanded" @click="emit('toggle')" /></td>
+    <td>
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        :icon="expanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+        :aria-controls="detailsId"
+        :aria-expanded="expanded"
+        @click="emit('toggle')"
+      />
+    </td>
     <td><strong>{{ group.wilayah.namaSls }}</strong><span>{{ group.idSubsls }}</span></td>
     <td><strong>{{ group.wilayah.kecamatan }}</strong><span>{{ group.wilayah.desa }}</span></td>
     <td>{{ group.wilayah.ppl }}</td>
     <td>{{ group.wilayah.pml }}</td>
     <td>{{ group.assignments.length }}</td>
-    <td><UBadge :color="group.isSelesai ? 'success' : 'error'" variant="solid">{{ group.isSelesai ? 'Selesai' : 'Belum selesai' }}</UBadge></td>
+    <td>
+      <UBadge
+        :color="group.isSelesai ? 'success' : 'error'"
+        variant="solid"
+      >
+        {{ group.isSelesai ? 'Selesai' : 'Belum selesai' }}
+      </UBadge>
+    </td>
     <td class="sls-row__actions">
-      <a :href="`/api/tidak-ditemukan/${encodeURIComponent(group.idSubsls)}/docx`" class="download-docx">Download DOCX</a>
-      <UButton :label="group.isSelesai ? 'Batalkan' : 'Tandai selesai'" :color="group.isSelesai ? 'neutral' : 'success'" size="xs" :loading="saving" @click="emit('update-status', !group.isSelesai)" />
+      <a
+        :href="`/api/tidak-ditemukan/${encodeURIComponent(group.idSubsls)}/docx`"
+        class="download-docx"
+      >Download DOCX</a>
+      <UButton
+        :label="group.isSelesai ? 'Batalkan' : 'Tandai selesai'"
+        :color="group.isSelesai ? 'neutral' : 'success'"
+        size="xs"
+        :loading="saving"
+        @click="emit('update-status', !group.isSelesai)"
+      />
     </td>
   </tr>
-  <tr v-if="expanded" class="sls-detail-row">
-    <td :colspan="8"><div :id="detailsId" class="sls-detail"><table><thead><tr><th>No.</th><th>Nama Assignment</th></tr></thead><tbody><tr v-for="(assignment, index) in group.assignments" :key="assignment.id"><td>{{ index + 1 }}</td><td>{{ assignment.namaAssignment }}</td></tr></tbody></table></div></td>
+  <tr
+    v-if="expanded"
+    class="sls-detail-row"
+  >
+    <td :colspan="8">
+      <div
+        :id="detailsId"
+        class="sls-detail"
+      >
+        <table>
+          <thead><tr><th>No.</th><th>Nama Assignment</th></tr></thead><tbody>
+            <tr
+              v-for="(assignment, index) in group.assignments"
+              :key="assignment.id"
+            >
+              <td>{{ index + 1 }}</td><td>{{ assignment.namaAssignment }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </td>
   </tr>
 </template>
 

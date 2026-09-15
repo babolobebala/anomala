@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
   }
   const masterSlsById = new Map(masterSlsValues.map(masterSls => [masterSls.idSubsls, masterSls]))
 
-  const sources = idSubslsValues.map(idSubsls => {
+  const sources = idSubslsValues.map((idSubsls) => {
     const masterSls = masterSlsById.get(idSubsls)
     const slsAssignments = assignmentsBySls.get(idSubsls) ?? []
 
