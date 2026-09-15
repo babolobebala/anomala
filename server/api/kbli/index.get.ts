@@ -44,41 +44,59 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const rows = await prisma.kbli.findMany({
-    where: buildVisibleKbliWhere(assignmentIds, filters),
-    select: {
-      id: true,
-      kbliKey: true,
-      assignmentId: true,
-      kategori: true,
-      statusAlias: true,
-      namaAssignment: true,
-      nomorBangunan: true,
-      idsbr: true,
-      linkFasihEdit: true,
-      data: true,
-      catatan: true,
-      isHandled: true,
-      handledAt: true,
-      masterSls: {
-        select: {
-          idSubsls: true,
-          kecamatan: true,
-          desa: true,
-          namaSls: true,
-          ppl: true,
-          pml: true
+  const [rows, assignmentHandlings] = await Promise.all([
+    prisma.kbli.findMany({
+      where: buildVisibleKbliWhere(assignmentIds, filters),
+      select: {
+        id: true,
+        kbliKey: true,
+        assignmentId: true,
+        kategori: true,
+        statusAlias: true,
+        namaAssignment: true,
+        nomorBangunan: true,
+        idsbr: true,
+        linkFasihEdit: true,
+        data: true,
+        catatan: true,
+        isHandled: true,
+        handledAt: true,
+        masterSls: {
+          select: {
+            idSubsls: true,
+            kecamatan: true,
+            desa: true,
+            namaSls: true,
+            ppl: true,
+            pml: true
+          }
+        }
+      },
+      orderBy: [{ assignmentId: 'asc' }, { kategori: 'asc' }, { id: 'asc' }]
+    }),
+    prisma.kbliHandling.findMany({
+      where: { assignmentId: { in: assignmentIds } },
+      select: {
+        assignmentId: true,
+        eksekutor: {
+          select: { id: true, nama: true }
         }
       }
-    },
-    orderBy: [{ assignmentId: 'asc' }, { kategori: 'asc' }, { id: 'asc' }]
-  })
+    })
+  ])
+  const executorsByAssignment = new Map(
+    assignmentHandlings.map(handling => [handling.assignmentId, handling.eksekutor])
+  )
 
   return {
     page,
     pageSize: filters.pageSize,
     totalAssignments,
     totalPages,
-    groups: groupKbliRows(assignmentIds, rows as KbliVisibleRow[])
+    groups: groupKbliRows(
+      assignmentIds,
+      rows as KbliVisibleRow[],
+      executorsByAssignment
+    )
   }
 })

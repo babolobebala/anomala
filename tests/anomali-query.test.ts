@@ -17,6 +17,10 @@ function sqlText(query: unknown): string {
   return (query as { strings: readonly string[] }).strings.join(' ')
 }
 
+function factTableReferenceCount(sql: string, table: string): number {
+  return [...sql.matchAll(new RegExp(`\\b(?:FROM|JOIN)\\s+${table}\\b`, 'gi'))].length
+}
+
 interface RecapAssignmentRecord {
   assignmentId: string
   kodeAnomali: string
@@ -175,15 +179,14 @@ assert.match(sqlText(buildAssignmentIdsQuery(ak03HandledFilters, 1)), /completio
 
 const recapQuery = sqlText(buildAnomalyRecapQuery())
 assert.match(recapQuery, /FROM master_anomali AS m/)
-assert.match(recapQuery, /LEFT JOIN anomali AS a ON a\.kodeAnomali = m\.kodeAnomali/)
-assert.match(recapQuery, /GROUP BY m\.kodeAnomali, m\.deskripsi/)
-assert.match(recapQuery, /SELECT\s+a\.kodeAnomali,\s+a\.assignmentId,/)
+assert.match(recapQuery, /recap\.kodeAnomali = m\.kodeAnomali/)
 assert.match(recapQuery, /GROUP BY a\.kodeAnomali, a\.assignmentId/)
-assert.match(recapQuery, /assignment_status\.kodeAnomali = a\.kodeAnomali/)
-assert.match(recapQuery, /COUNT\(DISTINCT CASE\s+WHEN assignment_status\.hasUnhandled = 1 THEN a\.assignmentId/)
+assert.match(recapQuery, /GROUP BY per_assignment\.kodeAnomali/)
 assert.match(recapQuery, /a\.isActive = true AND a\.isHandled = false AND a\.isSesuaiLapangan = false/)
 assert.match(recapQuery, /a\.isActive = true AND \(a\.isHandled = true OR a\.isSesuaiLapangan = true\)/)
 assert.match(recapQuery, /a\.isActive = false AND a\.isHandled = true/)
+assert.equal(factTableReferenceCount(recapQuery, 'anomali'), 1)
+assert.doesNotMatch(recapQuery, /COUNT\s*\(\s*DISTINCT\s+/i)
 
 const mixedCodeAssignments: RecapAssignmentRecord[] = [
   { assignmentId: 'assignment-x', kodeAnomali: 'AK02', isActive: true, isHandled: true, isSesuaiLapangan: false },

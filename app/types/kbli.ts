@@ -18,6 +18,11 @@ export interface KbliWilayah {
   pml: string
 }
 
+export interface ExecutorOption {
+  id: string
+  nama: string
+}
+
 export interface AssignmentKbliGroup {
   assignmentId: string
   namaAssignment: string | null
@@ -25,6 +30,7 @@ export interface AssignmentKbliGroup {
   idsbr: string | null
   linkFasihEdit: string | null
   statusAlias: string | null
+  executor: ExecutorOption | null
   wilayah: KbliWilayah
   summary: {
     total: number
@@ -87,4 +93,9 @@ export interface KbliHandlingResponse {
   id: string
   isHandled: boolean
   handledAt: string | null
+}
+
+export interface AssignmentExecutorResponse {
+  assignmentId: string
+  eksekutor: ExecutorOption | null
 }

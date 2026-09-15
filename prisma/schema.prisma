@@ -101,6 +101,7 @@ model Anomali {
   @@index([assignmentId])
   @@index([idSubsls])
   @@index([kodeAnomali])
+  @@index([kodeAnomali, assignmentId])
   @@index([isActive])
   @@index([isHandled])
   @@index([isSesuaiLapangan])
@@ -138,6 +139,7 @@ model Kbli {
   @@index([assignmentId])
   @@index([idSubsls])
   @@index([kategori])
+  @@index([kategori, assignmentId])
   @@index([isHandled])
   @@map("kbli")
 }

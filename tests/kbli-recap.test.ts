@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { buildKbliRecapQuery } from '../server/utils/kbli-query'
 
@@ -32,6 +33,10 @@ interface CategoryRecap {
 
 function sqlText(query: unknown): string {
   return (query as RawSql).strings.join(' ')
+}
+
+function factTableReferenceCount(sql: string, table: string): number {
+  return [...sql.matchAll(new RegExp(`\\b(?:FROM|JOIN)\\s+${table}\\b`, 'gi'))].length
 }
 
 function summarizeCategories(
@@ -156,12 +161,21 @@ assert.deepEqual(
 const recapQuery = sqlText(buildKbliRecapQuery())
 
 assert.match(recapQuery, /FROM master_kbli_temuan AS m/)
-assert.match(recapQuery, /LEFT JOIN kbli AS k ON k\.kategori = m\.kode/)
-assert.match(recapQuery, /GROUP BY kategori, assignmentId/)
-assert.match(recapQuery, /assignment_status\.kategori = k\.kategori/)
-assert.match(recapQuery, /assignment_status\.hasUnhandled = 1/)
-assert.match(recapQuery, /assignment_status\.hasUnhandled = 0/)
+assert.match(recapQuery, /recap\.kategori = m\.kode/)
+assert.match(recapQuery, /GROUP BY k\.kategori, k\.assignmentId/)
+assert.match(recapQuery, /GROUP BY per_assignment\.kategori/)
 assert.match(recapQuery, /k\.isHandled = false/)
 assert.match(recapQuery, /k\.isHandled = true/)
+assert.equal(factTableReferenceCount(recapQuery, 'kbli'), 1)
+assert.doesNotMatch(recapQuery, /COUNT\s*\(\s*DISTINCT\s+/i)
+
+const endpointSource = readFileSync(
+  new URL('../server/api/kbli/recap.get.ts', import.meta.url),
+  'utf8'
+)
+
+assert.equal([...endpointSource.matchAll(/prisma\.\$queryRaw/g)].length, 1)
+assert.equal([...endpointSource.matchAll(/\bprisma\.[\w$]+/g)].length, 1)
+assert.doesNotMatch(endpointSource, /Promise\.all/)
 
 console.log('KBLI recap tests passed.')

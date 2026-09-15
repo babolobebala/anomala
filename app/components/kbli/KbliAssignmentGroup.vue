@@ -1,24 +1,60 @@
 <script setup lang="ts">
 import KbliRow from './KbliRow.vue'
-import type { AssignmentKbliGroup, KbliFindingItem } from '~/types/kbli'
+import type {
+  AssignmentKbliGroup,
+  ExecutorOption,
+  KbliFindingItem
+} from '~/types/kbli'
 
 const props = defineProps<{
   group: AssignmentKbliGroup
   expanded: boolean
   saving: Record<string, boolean>
+  savingExecutor: boolean
   expandedData: Record<string, boolean>
+  executorOptions: ExecutorOption[]
 }>()
 
 const emit = defineEmits<{
   'toggle-assignment': []
   'toggle-data': [id: string]
   'toggle-handling': [kbli: KbliFindingItem]
+  'update-executor': [eksekutorId: string | null]
 }>()
 
 const detailsId = computed(
   () => `kbli-assignment-${encodeURIComponent(props.group.assignmentId)}`
 )
 const hasFindings = computed(() => props.group.kbli.length > 0)
+const UNASSIGNED_EXECUTOR_VALUE = '__unassigned__'
+const executorSelectMenuUi = {
+  base: 'bg-[var(--color-paper)] text-[var(--color-ink-2)] placeholder:text-[var(--color-muted)] ring-[var(--color-rule-2)] hover:bg-[var(--color-paper-2)] disabled:bg-[var(--color-paper)] disabled:text-[var(--color-muted)] disabled:opacity-100',
+  arrow: 'fill-[var(--color-paper)] stroke-[var(--color-muted)]',
+  content: 'bg-[var(--color-paper)] text-[var(--color-ink-2)] ring-[var(--color-rule-2)] shadow-lg',
+  item: 'text-[var(--color-ink-2)] data-highlighted:not-data-disabled:text-[var(--color-ink)] data-highlighted:not-data-disabled:before:bg-[var(--color-paper-2)]'
+}
+const executorItems = computed(() => [
+  { label: 'Belum ditugaskan', value: UNASSIGNED_EXECUTOR_VALUE },
+  ...props.executorOptions
+    .filter(executor => executor.id.trim().length > 0)
+    .map(executor => ({
+      label: executor.nama,
+      value: executor.id.trim()
+    }))
+])
+
+function selectedExecutorValue(): string {
+  return props.group.executor?.id.trim() || UNASSIGNED_EXECUTOR_VALUE
+}
+
+function updateExecutor(value: unknown): void {
+  const executorId = String(value ?? '').trim()
+
+  emit(
+    'update-executor',
+    executorId === UNASSIGNED_EXECUTOR_VALUE ? null : executorId || null
+  )
+}
 
 function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
   const normalized = status?.trim().toUpperCase() ?? ''
@@ -107,7 +143,22 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
         class="cell-secondary"
       >—</span>
     </td>
-    <td class="assignment-cell assignment-cell--penanganan">
+    <td class="assignment-cell assignment-cell--executor">
+      <USelectMenu
+        :model-value="selectedExecutorValue()"
+        :items="executorItems"
+        value-key="value"
+        color="neutral"
+        variant="outline"
+        size="sm"
+        class="assignment-executor"
+        :ui="executorSelectMenuUi"
+        :disabled="savingExecutor"
+        placeholder="Pilih eksekutor"
+        @update:model-value="updateExecutor"
+      />
+    </td>
+    <td class="assignment-cell assignment-cell--handling">
       <span
         class="handling-progress"
         :aria-label="`${group.summary.handled} dari ${group.summary.total} KBLI selesai`"
@@ -122,7 +173,7 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
     class="assignment-detail-row"
   >
     <td
-      :colspan="7"
+      :colspan="8"
       class="assignment-detail-cell"
     >
       <div
@@ -203,8 +254,16 @@ function sourceStatusTone(status: string | null): 'blue' | 'red' | 'green' {
   text-align: center;
 }
 
-.assignment-cell--penanganan {
+.assignment-cell--handling {
   min-width: 11.5rem;
+}
+
+.assignment-cell--executor {
+  min-width: 11rem;
+}
+
+.assignment-executor {
+  min-width: 10rem;
 }
 
 .cell-primary,

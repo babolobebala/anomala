@@ -71,6 +71,11 @@ export interface KbliSubsetSummary {
   unhandled: number
 }
 
+export interface KbliExecutor {
+  id: string
+  nama: string
+}
+
 export interface KbliAssignmentGroup {
   assignmentId: string
   namaAssignment: string | null
@@ -78,6 +83,7 @@ export interface KbliAssignmentGroup {
   idsbr: string | null
   linkFasihEdit: string | null
   statusAlias: string | null
+  executor: KbliExecutor | null
   wilayah: KbliWilayah
   summary: KbliSubsetSummary
   kbli: KbliFindingItem[]
@@ -337,28 +343,34 @@ export function buildKbliRecapQuery(): Prisma.Sql {
     SELECT
       m.kode AS kategori,
       m.deskripsi,
-      COUNT(DISTINCT k.assignmentId) AS totalAssignments,
-      COUNT(k.id) AS totalFindings,
-      COUNT(DISTINCT CASE
-        WHEN assignment_status.hasUnhandled = 1 THEN k.assignmentId
-      END) AS unhandledAssignments,
-      SUM(CASE WHEN k.isHandled = false THEN 1 ELSE 0 END) AS unhandledFindings,
-      COUNT(DISTINCT CASE
-        WHEN assignment_status.hasUnhandled = 0 THEN k.assignmentId
-      END) AS handledAssignments,
-      SUM(CASE WHEN k.isHandled = true THEN 1 ELSE 0 END) AS handledFindings
+      COALESCE(recap.totalAssignments, 0) AS totalAssignments,
+      COALESCE(recap.totalFindings, 0) AS totalFindings,
+      COALESCE(recap.unhandledAssignments, 0) AS unhandledAssignments,
+      COALESCE(recap.unhandledFindings, 0) AS unhandledFindings,
+      COALESCE(recap.handledAssignments, 0) AS handledAssignments,
+      COALESCE(recap.handledFindings, 0) AS handledFindings
     FROM master_kbli_temuan AS m
-    LEFT JOIN kbli AS k ON k.kategori = m.kode
     LEFT JOIN (
       SELECT
-        kategori,
-        assignmentId,
-        MAX(CASE WHEN isHandled = false THEN 1 ELSE 0 END) AS hasUnhandled
-      FROM kbli
-      GROUP BY kategori, assignmentId
-    ) AS assignment_status ON assignment_status.kategori = k.kategori
-      AND assignment_status.assignmentId = k.assignmentId
-    GROUP BY m.kode, m.deskripsi
+        per_assignment.kategori,
+        COUNT(*) AS totalAssignments,
+        SUM(CASE WHEN per_assignment.unhandledFindings > 0 THEN 1 ELSE 0 END) AS unhandledAssignments,
+        SUM(CASE WHEN per_assignment.unhandledFindings = 0 THEN 1 ELSE 0 END) AS handledAssignments,
+        SUM(per_assignment.totalFindings) AS totalFindings,
+        SUM(per_assignment.unhandledFindings) AS unhandledFindings,
+        SUM(per_assignment.handledFindings) AS handledFindings
+      FROM (
+        SELECT
+          k.kategori,
+          k.assignmentId,
+          COUNT(*) AS totalFindings,
+          SUM(CASE WHEN k.isHandled = false THEN 1 ELSE 0 END) AS unhandledFindings,
+          SUM(CASE WHEN k.isHandled = true THEN 1 ELSE 0 END) AS handledFindings
+        FROM kbli AS k
+        GROUP BY k.kategori, k.assignmentId
+      ) AS per_assignment
+      GROUP BY per_assignment.kategori
+    ) AS recap ON recap.kategori = m.kode
     ORDER BY m.kode ASC
   `
 }
@@ -382,7 +394,8 @@ export function summarizeKbliSubset(
  */
 export function groupKbliRows(
   assignmentIds: readonly string[],
-  rows: readonly KbliVisibleRow[]
+  rows: readonly KbliVisibleRow[],
+  executorsByAssignment: ReadonlyMap<string, KbliExecutor | null> = new Map()
 ): KbliAssignmentGroup[] {
   const groupsByAssignment = new Map<string, KbliAssignmentGroup>()
 
@@ -394,6 +407,7 @@ export function groupKbliRows(
       idsbr: row.idsbr,
       linkFasihEdit: row.linkFasihEdit,
       statusAlias: row.statusAlias,
+      executor: executorsByAssignment.get(row.assignmentId) ?? null,
       wilayah: row.masterSls,
       summary: { total: 0, handled: 0, unhandled: 0 },
       kbli: []

@@ -366,35 +366,46 @@ export function buildAnomalyRecapQuery(): Prisma.Sql {
     SELECT
       m.kodeAnomali,
       m.deskripsi,
-      COUNT(DISTINCT a.assignmentId) AS totalAssignments,
-      COUNT(a.id) AS totalAnomalies,
-      COUNT(DISTINCT CASE
-        WHEN assignment_status.hasUnhandled = 1 THEN a.assignmentId
-      END) AS unhandledAssignments,
-      SUM(CASE WHEN ${unhandledCondition} THEN 1 ELSE 0 END) AS unhandledAnomalies,
-      COUNT(DISTINCT CASE
-        WHEN assignment_status.hasActive = 1
-          AND assignment_status.hasUnhandled = 0
-        THEN a.assignmentId
-      END) AS handledAssignments,
-      SUM(CASE WHEN ${handledCondition} THEN 1 ELSE 0 END) AS handledAnomalies,
-      COUNT(DISTINCT CASE
-        WHEN assignment_status.hasActive = 0 THEN a.assignmentId
-      END) AS disappearedAssignments,
-      SUM(CASE WHEN ${disappearedCondition} THEN 1 ELSE 0 END) AS disappearedAnomalies
+      COALESCE(recap.totalAssignments, 0) AS totalAssignments,
+      COALESCE(recap.totalAnomalies, 0) AS totalAnomalies,
+      COALESCE(recap.unhandledAssignments, 0) AS unhandledAssignments,
+      COALESCE(recap.unhandledAnomalies, 0) AS unhandledAnomalies,
+      COALESCE(recap.handledAssignments, 0) AS handledAssignments,
+      COALESCE(recap.handledAnomalies, 0) AS handledAnomalies,
+      COALESCE(recap.disappearedAssignments, 0) AS disappearedAssignments,
+      COALESCE(recap.disappearedAnomalies, 0) AS disappearedAnomalies
     FROM master_anomali AS m
-    LEFT JOIN anomali AS a ON a.kodeAnomali = m.kodeAnomali
     LEFT JOIN (
       SELECT
-        a.kodeAnomali,
-        a.assignmentId,
-        MAX(CASE WHEN a.isActive = true THEN 1 ELSE 0 END) AS hasActive,
-        MAX(CASE WHEN ${unhandledCondition} THEN 1 ELSE 0 END) AS hasUnhandled
-      FROM anomali AS a
-      GROUP BY a.kodeAnomali, a.assignmentId
-    ) AS assignment_status ON assignment_status.kodeAnomali = a.kodeAnomali
-      AND assignment_status.assignmentId = a.assignmentId
-    GROUP BY m.kodeAnomali, m.deskripsi
+        per_assignment.kodeAnomali,
+        COUNT(*) AS totalAssignments,
+        SUM(CASE WHEN per_assignment.hasUnhandled = 1 THEN 1 ELSE 0 END) AS unhandledAssignments,
+        SUM(CASE
+          WHEN per_assignment.hasActive = 1
+            AND per_assignment.hasUnhandled = 0
+          THEN 1
+          ELSE 0
+        END) AS handledAssignments,
+        SUM(CASE WHEN per_assignment.hasActive = 0 THEN 1 ELSE 0 END) AS disappearedAssignments,
+        SUM(per_assignment.totalAnomalies) AS totalAnomalies,
+        SUM(per_assignment.unhandledAnomalies) AS unhandledAnomalies,
+        SUM(per_assignment.handledAnomalies) AS handledAnomalies,
+        SUM(per_assignment.disappearedAnomalies) AS disappearedAnomalies
+      FROM (
+        SELECT
+          a.kodeAnomali,
+          a.assignmentId,
+          COUNT(*) AS totalAnomalies,
+          SUM(CASE WHEN ${unhandledCondition} THEN 1 ELSE 0 END) AS unhandledAnomalies,
+          SUM(CASE WHEN ${handledCondition} THEN 1 ELSE 0 END) AS handledAnomalies,
+          SUM(CASE WHEN ${disappearedCondition} THEN 1 ELSE 0 END) AS disappearedAnomalies,
+          MAX(CASE WHEN a.isActive = true THEN 1 ELSE 0 END) AS hasActive,
+          MAX(CASE WHEN ${unhandledCondition} THEN 1 ELSE 0 END) AS hasUnhandled
+        FROM anomali AS a
+        GROUP BY a.kodeAnomali, a.assignmentId
+      ) AS per_assignment
+      GROUP BY per_assignment.kodeAnomali
+    ) AS recap ON recap.kodeAnomali = m.kodeAnomali
     ORDER BY m.kodeAnomali ASC
   `
 }

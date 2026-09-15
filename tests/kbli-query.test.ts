@@ -223,6 +223,21 @@ assert.equal(allGroups[0].kbli[1].isHandled, false)
 assert.equal(allGroups[0].kbli[1].handledAt, null)
 assert.equal(allGroups[2].wilayah.idSubsls, 'sls-1')
 assert.equal(allGroups[3].wilayah.idSubsls, 'sls-2')
+assert.ok(allGroups.every(group => group.executor === null))
+
+const groupsWithExecutors = groupKbliRows(
+  ['A1', 'A2'],
+  visibleRowsFor(['A1', 'A2']),
+  new Map([
+    ['A1', { id: 'exec-1', nama: 'Eksekutor Satu' }],
+    ['A2', null]
+  ])
+)
+
+assert.deepEqual(groupsWithExecutors.map(group => group.executor), [
+  { id: 'exec-1', nama: 'Eksekutor Satu' },
+  null
+])
 
 assert.deepEqual(summarizeKbliSubset([]), { total: 0, handled: 0, unhandled: 0 })
 assert.deepEqual(

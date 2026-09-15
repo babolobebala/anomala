@@ -2,7 +2,9 @@
 import KbliAssignmentGroup from '~/components/kbli/KbliAssignmentGroup.vue'
 import KbliFilterBar from '~/components/kbli/KbliFilterBar.vue'
 import type {
+  AssignmentExecutorResponse,
   AssignmentKbliGroup,
+  ExecutorOption,
   KbliAssignmentStatistics,
   KbliFilterState,
   KbliFindingItem,
@@ -27,6 +29,7 @@ const page = ref(1)
 const expandedData = reactive<Record<string, boolean>>({})
 const expandedAssignments = reactive<Record<string, boolean>>({})
 const saving = reactive<Record<string, boolean>>({})
+const executorSaving = reactive<Record<string, boolean>>({})
 const mutationError = ref('')
 
 const listQuery = computed(() => ({
@@ -65,6 +68,7 @@ const {
 } = await useFetch<KbliAssignmentStatistics>('/api/kbli/statistics', {
   query: statisticsQuery
 })
+const { data: executors } = await useFetch<ExecutorOption[]>('/api/kbli/executors')
 
 const statisticsCards = computed(() => [
   {
@@ -219,6 +223,39 @@ async function toggleHandling(
       = 'Status penanganan gagal diperbarui. Perubahan lokal dikembalikan.'
   } finally {
     saving[finding.id] = false
+  }
+}
+
+async function updateAssignmentExecutor(
+  group: AssignmentKbliGroup,
+  eksekutorId: string | null
+): Promise<void> {
+  if (executorSaving[group.assignmentId]) {
+    return
+  }
+
+  mutationError.value = ''
+  executorSaving[group.assignmentId] = true
+  const previous = group.executor
+  group.executor = eksekutorId
+    ? executors.value?.find(executor => executor.id === eksekutorId) ?? null
+    : null
+
+  try {
+    const result = await $fetch<AssignmentExecutorResponse>(
+      `/api/kbli/assignment/${encodeURIComponent(group.assignmentId)}/executor`,
+      {
+        method: 'PATCH',
+        body: { eksekutorId }
+      }
+    )
+
+    group.executor = result.eksekutor
+  } catch {
+    group.executor = previous
+    mutationError.value = 'Eksekutor assignment gagal diperbarui. Coba lagi.'
+  } finally {
+    executorSaving[group.assignmentId] = false
   }
 }
 </script>
@@ -383,6 +420,9 @@ async function toggleHandling(
                 FASIH
               </th>
               <th scope="col">
+                Eksekutor
+              </th>
+              <th scope="col">
                 Penanganan
               </th>
             </tr>
@@ -419,6 +459,9 @@ async function toggleHandling(
                 </td>
                 <td>
                   <USkeleton class="assignment-table__skeleton-primary assignment-table__skeleton-primary--short" />
+                </td>
+                <td>
+                  <USkeleton class="assignment-table__skeleton-primary assignment-table__skeleton-primary--short" />
                   <USkeleton class="assignment-table__skeleton-action" />
                 </td>
               </tr>
@@ -430,10 +473,13 @@ async function toggleHandling(
                 :group="group"
                 :expanded="Boolean(expandedAssignments[group.assignmentId])"
                 :saving="saving"
+                :saving-executor="Boolean(executorSaving[group.assignmentId])"
                 :expanded-data="expandedData"
+                :executor-options="executors ?? []"
                 @toggle-assignment="toggleAssignment(group.assignmentId)"
                 @toggle-data="toggleData"
                 @toggle-handling="toggleHandling(group, $event)"
+                @update-executor="updateAssignmentExecutor(group, $event)"
               />
             </template>
           </tbody>
@@ -659,7 +705,7 @@ async function toggleHandling(
 
 .assignment-table {
   width: 100%;
-  min-width: 70rem;
+  min-width: 77rem;
   border-collapse: collapse;
   table-layout: fixed;
   color: var(--color-ink-2);
@@ -688,28 +734,29 @@ async function toggleHandling(
   text-align: center;
 }
 
-/* Column balance mirrors /anomali: the control columns keep their exact 3rem /
-   4.5rem sizing and the data columns keep anomaly's proportions while summing
-   to the same 94% total (there is no Eksekutor column), so the fixed columns
-   are never stretched. */
+/* Column balance matches /anomali exactly. */
 .assignment-table th:nth-child(2) {
-  width: 13%;
+  width: 11%;
 }
 
 .assignment-table th:nth-child(3) {
-  width: 14%;
+  width: 12%;
 }
 
 .assignment-table th:nth-child(4) {
-  width: 24%;
+  width: 20%;
 }
 
 .assignment-table th:nth-child(5) {
-  width: 28%;
+  width: 24%;
 }
 
 .assignment-table th:nth-child(7) {
-  width: 15%;
+  width: 14%;
+}
+
+.assignment-table th:nth-child(8) {
+  width: 13%;
 }
 
 .page-heading {
