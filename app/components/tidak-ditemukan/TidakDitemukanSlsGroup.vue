@@ -56,12 +56,12 @@ const detailsId = computed(() => `tidak-ditemukan-${encodeURIComponent(props.gro
         class="sls-detail"
       >
         <table>
-          <thead><tr><th>No.</th><th>Nama Assignment</th></tr></thead><tbody>
+          <thead><tr><th>No.</th><th>Nama Assignment</th><th>Sumber</th></tr></thead><tbody>
             <tr
               v-for="(assignment, index) in group.assignments"
               :key="assignment.id"
             >
-              <td>{{ index + 1 }}</td><td>{{ assignment.namaAssignment }}</td>
+              <td>{{ index + 1 }}</td><td>{{ assignment.namaAssignment }}</td><td>{{ assignment.sumber || '-' }}</td>
             </tr>
           </tbody>
         </table>

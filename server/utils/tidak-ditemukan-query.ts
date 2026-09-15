@@ -32,6 +32,7 @@ export interface TidakDitemukanVisibleAssignment {
   id: string
   idSubsls: string
   namaAssignment: string
+  sumber: string | null
   masterSls: TidakDitemukanWilayah
 }
 
@@ -40,7 +41,7 @@ export interface TidakDitemukanSlsGroup {
   wilayah: TidakDitemukanWilayah
   isSelesai: boolean
   selesaiAt: string | null
-  assignments: Array<{ id: string, namaAssignment: string }>
+  assignments: Array<{ id: string, namaAssignment: string, sumber: string | null }>
 }
 
 function queryString(value: QueryValue): string | undefined {
@@ -156,7 +157,7 @@ export function groupTidakDitemukanRows(
       selesaiAt: status?.isSelesai ? status.selesaiAt?.toISOString() ?? null : null,
       assignments: []
     }
-    group.assignments.push({ id: row.id, namaAssignment: row.namaAssignment })
+    group.assignments.push({ id: row.id, namaAssignment: row.namaAssignment, sumber: row.sumber })
     groups.set(row.idSubsls, group)
   }
 

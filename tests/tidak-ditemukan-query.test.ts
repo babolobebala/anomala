@@ -17,11 +17,17 @@ import {
 } from '../server/utils/tidak-ditemukan-status'
 import { serializeTidakDitemukanSnapshot } from '../server/utils/tidak-ditemukan-snapshot'
 
-function row(id: string, idSubsls: string, namaAssignment: string): TidakDitemukanVisibleAssignment {
+function row(
+  id: string,
+  idSubsls: string,
+  namaAssignment: string,
+  sumber: string | null = null
+): TidakDitemukanVisibleAssignment {
   return {
     id,
     idSubsls,
     namaAssignment,
+    sumber,
     masterSls: {
       idSubsls,
       kecamatan: idSubsls === 'sls-1' ? 'Kecamatan A' : 'Kecamatan B',
@@ -47,7 +53,7 @@ assert.deepEqual(tidakDitemukanMasterSlsWhere(filters), {
 })
 
 const rows = [
-  row('a-1', 'sls-1', 'Assignment 1'),
+  row('a-1', 'sls-1', 'Assignment 1', 'Sumber A'),
   row('a-2', 'sls-1', 'Assignment 2'),
   row('a-3', 'sls-2', 'Assignment 3'),
   row('a-4', 'sls-3', 'Assignment 4')
@@ -59,6 +65,8 @@ const firstPage = groupTidakDitemukanRows(
 assert.equal(firstPage.length, 2)
 assert.equal(firstPage[0]?.assignments.length, 2)
 assert.equal(firstPage[1]?.assignments.length, 1)
+assert.equal(firstPage[0]?.assignments[0]?.sumber, 'Sumber A')
+assert.equal(firstPage[0]?.assignments[1]?.sumber, null)
 assert.equal(firstPage[0]?.isSelesai, false, 'missing status is unresolved')
 assert.equal(firstPage[1]?.isSelesai, true)
 assert.equal(firstPage[1]?.selesaiAt, '2026-09-15T00:00:00.000Z')

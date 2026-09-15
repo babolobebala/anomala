@@ -12,7 +12,7 @@ export interface TidakDitemukanSlsGroup {
   wilayah: TidakDitemukanWilayah
   isSelesai: boolean
   selesaiAt: string | null
-  assignments: Array<{ id: string, namaAssignment: string }>
+  assignments: Array<{ id: string, namaAssignment: string, sumber: string | null }>
 }
 
 export interface TidakDitemukanListResponse {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -12,9 +12,15 @@ import {
   type TidakDitemukanImportTransactionOptions,
   type TidakDitemukanSourceRecord
 } from '../server/services/tidak-ditemukan-import'
+import {
+  TidakDitemukanImportPasswordError,
+  importTidakDitemukanUploadedFile
+} from '../server/utils/tidak-ditemukan-import-upload'
 
 const headers = ['id_subsls', 'nama_assignment'] as const
-type FixtureRow = Partial<Record<(typeof headers)[number], string>>
+const headersWithSumber = [...headers, 'SUMBER'] as const
+type FixtureHeader = (typeof headersWithSumber)[number]
+type FixtureRow = Partial<Record<FixtureHeader, string>>
 
 interface StoredAssignment extends TidakDitemukanSourceRecord {
   id: string
@@ -98,10 +104,15 @@ class FakeDatabase implements TidakDitemukanImportDatabase, TidakDitemukanImport
   }
 }
 
-async function writeWorkbook(directory: string, name: string, rows: FixtureRow[]): Promise<string> {
+async function writeWorkbook(
+  directory: string,
+  name: string,
+  rows: FixtureRow[],
+  workbookHeaders: readonly FixtureHeader[] = headers
+): Promise<string> {
   const sheet = XLSX.utils.aoa_to_sheet([
-    headers,
-    ...rows.map(row => headers.map(header => row[header] ?? ''))
+    workbookHeaders,
+    ...rows.map(row => workbookHeaders.map(header => row[header] ?? ''))
   ])
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, sheet, 'Tidak Ditemukan')
@@ -126,7 +137,7 @@ async function run(): Promise<void> {
     const database = new FakeDatabase()
     database.masterSlsValues.add('sls-1')
     database.masterSlsValues.add('sls-2')
-    database.assignments.push({ id: 'assignment-old', idSubsls: 'sls-1', namaAssignment: 'Old' })
+    database.assignments.push({ id: 'assignment-old', idSubsls: 'sls-1', namaAssignment: 'Old', sumber: null })
     database.statuses.push({
       idSubsls: 'sls-1',
       isSelesai: true,
@@ -141,10 +152,10 @@ async function run(): Promise<void> {
     })
 
     const firstImportPath = await writeWorkbook(directory, 'first-import', [
-      { id_subsls: 'sls-1', nama_assignment: 'Assignment A' },
-      { id_subsls: 'sls-1', nama_assignment: 'Assignment A' },
-      { id_subsls: 'sls-2', nama_assignment: 'Assignment B' }
-    ])
+      { id_subsls: 'sls-1', nama_assignment: 'Assignment A', SUMBER: '  Sumber A  ' },
+      { id_subsls: 'sls-1', nama_assignment: 'Assignment A', SUMBER: '  ' },
+      { id_subsls: 'sls-2', nama_assignment: 'Assignment B', SUMBER: 'Sumber B' }
+    ], headersWithSumber)
     const beforeDryRun = snapshot(database)
     const dryRun = await importTidakDitemukanWorkbook({
       database,
@@ -163,15 +174,42 @@ async function run(): Promise<void> {
     })
     assert.equal(snapshot(database), beforeDryRun)
 
+    const webPreview = await importTidakDitemukanUploadedFile({
+      filename: 'first-import.xlsx',
+      data: await readFile(firstImportPath)
+    }, false, database)
+    assert.equal(webPreview.valid, true)
+    assert.equal(webPreview.applied, false)
+    assert.equal(webPreview.fileName, 'first-import.xlsx')
+    assert.deepEqual(webPreview.counts, dryRun.counts)
+    assert.equal(snapshot(database), beforeDryRun)
+
+    await assert.rejects(
+      importTidakDitemukanUploadedFile({
+        filename: 'first-import.xlsx',
+        data: await readFile(firstImportPath)
+      }, true, database),
+      TidakDitemukanImportPasswordError
+    )
+    assert.equal(snapshot(database), beforeDryRun)
+
+    await assert.rejects(
+      importTidakDitemukanUploadedFile({
+        filename: 'first-import.xlsx',
+        data: await readFile(firstImportPath)
+      }, true, database, 'wrong-password'),
+      TidakDitemukanImportPasswordError
+    )
+    assert.equal(snapshot(database), beforeDryRun)
+
     const invalidSlsPath = await writeWorkbook(directory, 'invalid-sls', [
       { id_subsls: 'missing-sls', nama_assignment: 'Assignment Missing' }
     ])
     const beforeInvalidSls = snapshot(database)
-    const invalidSls = await importTidakDitemukanWorkbook({
-      database,
-      filePath: invalidSlsPath,
-      apply: true
-    })
+    const invalidSls = await importTidakDitemukanUploadedFile({
+      filename: 'invalid-sls.xlsx',
+      data: await readFile(invalidSlsPath)
+    }, true, database, 'password')
 
     assert.equal(invalidSls.valid, false)
     assert.equal(invalidSls.counts.invalidMasterSls, 1)
@@ -191,23 +229,25 @@ async function run(): Promise<void> {
     assert.ok(emptyAssignment.issues.some(issue => issue.code === 'missing-assignment-name'))
     assert.equal(snapshot(database), beforeInvalidSls)
 
-    const firstImportedAt = new Date('2026-02-01T00:00:00.000Z')
-    const firstImport = await importTidakDitemukanWorkbook({
-      database,
-      filePath: firstImportPath,
-      apply: true,
-      now: firstImportedAt
-    })
+    const firstImport = await importTidakDitemukanUploadedFile({
+      filename: 'first-import.xlsx',
+      data: await readFile(firstImportPath)
+    }, true, database, 'password')
 
     assert.equal(firstImport.applied, true)
     assert.equal(database.assignments.length, 3)
-    assert.deepEqual(database.assignments.map(record => record.namaAssignment), [
-      'Assignment A', 'Assignment A', 'Assignment B'
+    assert.deepEqual(database.assignments.map(record => ({
+      namaAssignment: record.namaAssignment,
+      sumber: record.sumber
+    })), [
+      { namaAssignment: 'Assignment A', sumber: 'Sumber A' },
+      { namaAssignment: 'Assignment A', sumber: null },
+      { namaAssignment: 'Assignment B', sumber: 'Sumber B' }
     ])
     assert.deepEqual(database.statuses, [])
     assert.equal(database.metadata.length, 1)
     assert.equal(database.metadata[0]?.namaFile, 'first-import.xlsx')
-    assert.equal(database.metadata[0]?.importedAt, firstImportedAt)
+    assert.ok(database.metadata[0]?.importedAt instanceof Date)
     assert.equal(database.metadata[0]?.jumlahAssignment, 3)
     assert.equal(database.metadata[0]?.jumlahSls, 2)
 
@@ -223,8 +263,9 @@ async function run(): Promise<void> {
 
     assert.deepEqual(database.assignments.map(record => ({
       idSubsls: record.idSubsls,
-      namaAssignment: record.namaAssignment
-    })), [{ idSubsls: 'sls-2', namaAssignment: 'Replacement Assignment' }])
+      namaAssignment: record.namaAssignment,
+      sumber: record.sumber
+    })), [{ idSubsls: 'sls-2', namaAssignment: 'Replacement Assignment', sumber: null }])
     assert.deepEqual(database.statuses, [])
 
     database.statuses.push({
@@ -244,7 +285,10 @@ async function run(): Promise<void> {
     database.failOnMetadataCreate = true
 
     await assert.rejects(
-      importTidakDitemukanWorkbook({ database, filePath: firstImportPath, apply: true }),
+      importTidakDitemukanUploadedFile({
+        filename: 'first-import.xlsx',
+        data: await readFile(firstImportPath)
+      }, true, database, 'password'),
       /Simulated metadata write failure/
     )
     assert.equal(snapshot(database), beforeFailure)

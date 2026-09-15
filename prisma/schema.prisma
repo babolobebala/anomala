@@ -161,6 +161,7 @@ model TidakDitemukanAssignment {
   id             String @id @default(cuid())
   idSubsls       String
   namaAssignment String
+  sumber         String?
 
   masterSls MasterSls @relation(fields: [idSubsls], references: [idSubsls])
 

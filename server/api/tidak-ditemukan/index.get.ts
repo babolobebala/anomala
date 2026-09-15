@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
         id: true,
         idSubsls: true,
         namaAssignment: true,
+        sumber: true,
         masterSls: {
           select: { idSubsls: true, kecamatan: true, desa: true, namaSls: true, ppl: true, pml: true }
         }

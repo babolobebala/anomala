@@ -7,7 +7,7 @@ import * as xlsxEsm from 'xlsx/xlsx.mjs'
 
 const XLSX = xlsxEsm as Pick<typeof import('xlsx'), 'read' | 'utils'>
 
-const SOURCE_COLUMNS = {
+const REQUIRED_SOURCE_COLUMNS = {
   id_subsls: 'idSubsls',
   nama_assignment: 'namaAssignment'
 } as const
@@ -22,6 +22,7 @@ const APPLY_TRANSACTION_OPTIONS = {
 export interface TidakDitemukanSourceRecord {
   idSubsls: string
   namaAssignment: string
+  sumber: string | null
 }
 
 interface ParsedTidakDitemukanRecord extends TidakDitemukanSourceRecord {
@@ -162,6 +163,11 @@ function requiredValue(value: unknown): string {
   return stringValue(value).trim()
 }
 
+function optionalValue(value: unknown): string | null {
+  const normalized = requiredValue(value)
+  return normalized || null
+}
+
 function readWorkbook(
   fileBuffer: Buffer,
   fileName: string,
@@ -217,7 +223,7 @@ function readWorkbook(
       }
     }
 
-    if (Object.keys(SOURCE_COLUMNS).some(column => rowHeaders.has(column))) {
+    if (Object.keys(REQUIRED_SOURCE_COLUMNS).some(column => rowHeaders.has(column))) {
       headerRow = row
       rowHeaders.forEach((column, header) => headers.set(header, column))
       break
@@ -228,7 +234,7 @@ function readWorkbook(
     throw new TidakDitemukanImportFileError('Could not find a Tidak Ditemukan header row.')
   }
 
-  const missingColumns = Object.keys(SOURCE_COLUMNS).filter(column => !headers.has(column))
+  const missingColumns = Object.keys(REQUIRED_SOURCE_COLUMNS).filter(column => !headers.has(column))
 
   if (missingColumns.length > 0) {
     throw new TidakDitemukanImportFileError(`Missing required columns: ${missingColumns.join(', ')}`)
@@ -239,6 +245,8 @@ function readWorkbook(
   for (let row = headerRow + 1; row <= range.e.r; row++) {
     const idSubsls = requiredValue(cellValue(sheet, row, headers.get('id_subsls')!))
     const namaAssignment = requiredValue(cellValue(sheet, row, headers.get('nama_assignment')!))
+    const sumberColumn = headers.get('sumber')
+    const sumber = sumberColumn === undefined ? null : optionalValue(cellValue(sheet, row, sumberColumn))
 
     if (!idSubsls && !namaAssignment) {
       continue
@@ -267,7 +275,7 @@ function readWorkbook(
       continue
     }
 
-    records.push({ idSubsls, namaAssignment, rowNumber })
+    records.push({ idSubsls, namaAssignment, sumber, rowNumber })
   }
 
   return records
@@ -305,7 +313,7 @@ async function applyFreshImport(
 
     for (const recordsBatch of chunk(records, CREATE_BATCH_SIZE)) {
       await transaction.tidakDitemukanAssignment.createMany({
-        data: recordsBatch.map(({ idSubsls, namaAssignment }) => ({ idSubsls, namaAssignment }))
+        data: recordsBatch.map(({ idSubsls, namaAssignment, sumber }) => ({ idSubsls, namaAssignment, sumber }))
       })
     }
 
