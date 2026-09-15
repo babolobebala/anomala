@@ -2,6 +2,7 @@ import {
   generateTidakDitemukanDocx,
   hasTidakDitemukanDocxSource
 } from '../../../services/tidak-ditemukan-docx'
+import { buildTidakDitemukanDocxFilename } from '../../../utils/tidak-ditemukan-docx-filename'
 import { prisma } from '../../../utils/prisma'
 
 export default defineEventHandler(async (event) => {
@@ -13,7 +14,7 @@ export default defineEventHandler(async (event) => {
 
   const [assignments, masterSls] = await Promise.all([
     prisma.tidakDitemukanAssignment.findMany({
-      where: { idSubsls }, select: { namaAssignment: true }, orderBy: [{ namaAssignment: 'asc' }, { id: 'asc' }]
+      where: { idSubsls }, select: { namaAssignment: true, sumber: true }, orderBy: [{ namaAssignment: 'asc' }, { id: 'asc' }]
     }),
     prisma.masterSls.findUnique({
       where: { idSubsls }, select: { namaSls: true, desa: true, kecamatan: true, ppl: true, pml: true }
@@ -26,6 +27,6 @@ export default defineEventHandler(async (event) => {
 
   const report = await generateTidakDitemukanDocx({ wilayah: masterSls, assignments })
   setHeader(event, 'content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-  setHeader(event, 'content-disposition', `attachment; filename="Tidak Ditemukan - ${idSubsls}.docx"`)
+  setHeader(event, 'content-disposition', `attachment; filename="${buildTidakDitemukanDocxFilename({ idSubsls, ...masterSls })}"`)
   return report
 })

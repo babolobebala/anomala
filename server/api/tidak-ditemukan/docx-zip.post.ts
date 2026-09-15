@@ -8,6 +8,7 @@ import {
   TidakDitemukanDocxZipRequestError,
   parseTidakDitemukanDocxZipIds
 } from '../../utils/tidak-ditemukan-docx-zip'
+import { buildTidakDitemukanDocxFilename } from '../../utils/tidak-ditemukan-docx-filename'
 
 export default defineEventHandler(async (event) => {
   let idSubslsValues: string[]
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const [assignments, masterSlsValues] = await Promise.all([
     prisma.tidakDitemukanAssignment.findMany({
       where: { idSubsls: { in: idSubslsValues } },
-      select: { idSubsls: true, namaAssignment: true },
+      select: { idSubsls: true, namaAssignment: true, sumber: true },
       orderBy: [{ idSubsls: 'asc' }, { namaAssignment: 'asc' }, { id: 'asc' }]
     }),
     prisma.masterSls.findMany({
@@ -33,11 +34,11 @@ export default defineEventHandler(async (event) => {
     })
   ])
 
-  const assignmentsBySls = new Map<string, Array<{ namaAssignment: string }>>()
+  const assignmentsBySls = new Map<string, Array<{ namaAssignment: string, sumber: string | null }>>()
   for (const assignment of assignments) {
     assignmentsBySls.set(assignment.idSubsls, [
       ...(assignmentsBySls.get(assignment.idSubsls) ?? []),
-      { namaAssignment: assignment.namaAssignment }
+      { namaAssignment: assignment.namaAssignment, sumber: assignment.sumber }
     ])
   }
   const masterSlsById = new Map(masterSlsValues.map(masterSls => [masterSls.idSubsls, masterSls]))
@@ -62,7 +63,7 @@ export default defineEventHandler(async (event) => {
       wilayah: source.masterSls,
       assignments: source.assignments
     })
-    zip.file(`Tidak Ditemukan - ${source.idSubsls}.docx`, report)
+    zip.file(buildTidakDitemukanDocxFilename({ idSubsls: source.idSubsls, ...source.masterSls }), report)
   }
 
   const archive = await zip.generateAsync({

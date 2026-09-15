@@ -10,12 +10,12 @@ export interface TidakDitemukanDocxInput {
     ppl: string
     pml: string
   }
-  assignments: Array<{ namaAssignment: string }>
+  assignments: Array<{ namaAssignment: string, sumber: string | null }>
 }
 
 export function hasTidakDitemukanDocxSource(
   masterSls: TidakDitemukanDocxInput['wilayah'] | null,
-  assignments: readonly { namaAssignment: string }[]
+  assignments: readonly { namaAssignment: string, sumber: string | null }[]
 ): boolean {
   return Boolean(masterSls) && assignments.length > 0
 }
@@ -31,7 +31,8 @@ export function buildTidakDitemukanTemplateData(input: TidakDitemukanDocxInput) 
     nama_pml: input.wilayah.pml,
     assignments: input.assignments.map((assignment, index) => ({
       no: index + 1,
-      namaAssignment: assignment.namaAssignment
+      namaAssignment: assignment.namaAssignment,
+      sumber: assignment.sumber?.trim() || '-'
     }))
   }
 }

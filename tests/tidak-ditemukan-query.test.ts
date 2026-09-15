@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import JSZip from 'jszip'
 
 import {
   groupTidakDitemukanRows,
@@ -8,8 +10,10 @@ import {
 } from '../server/utils/tidak-ditemukan-query'
 import {
   buildTidakDitemukanTemplateData,
+  generateTidakDitemukanDocx,
   hasTidakDitemukanDocxSource
 } from '../server/services/tidak-ditemukan-docx'
+import { buildTidakDitemukanDocxFilename } from '../server/utils/tidak-ditemukan-docx-filename'
 import {
   buildTidakDitemukanSelesaiData,
   isTidakDitemukanSelesai,
@@ -87,15 +91,56 @@ assert.deepEqual(serializeTidakDitemukanSnapshot({
   importedAt: '2026-09-15T01:00:00.000Z', namaFile: 'snapshot.xlsx', jumlahAssignment: 4, jumlahSls: 3
 })
 
+assert.equal(buildTidakDitemukanDocxFilename({
+  idSubsls: '5207031001000100', kecamatan: 'Taliwang', desa: 'Menala', ppl: 'Ahmad', pml: 'Budi'
+}), 'Taliwang - Menala - 5207031001000100 - Ahmad - Budi.docx')
+const safeFilename = buildTidakDitemukanDocxFilename({
+  idSubsls: '  5207/031001  ', kecamatan: ' Taliwang: Barat ', desa: ' Menala  Utara ', ppl: '', pml: ' Budi|PML '
+})
+assert.equal(safeFilename, 'Taliwang- Barat - Menala Utara - 5207-031001 - - - Budi-PML.docx')
+assert.doesNotMatch(safeFilename, /[\\/:*?"<>|]/)
+
 const docxData = buildTidakDitemukanTemplateData({
   wilayah: rows[0]!.masterSls,
-  assignments: [{ namaAssignment: 'Assignment 1' }, { namaAssignment: 'Assignment 2' }]
+  assignments: [
+    { namaAssignment: 'Assignment 1', sumber: '  Sumber A  ' },
+    { namaAssignment: 'Assignment 2', sumber: null },
+    { namaAssignment: 'Assignment 3', sumber: '   ' }
+  ]
 })
 assert.deepEqual(docxData.assignments, [
-  { no: 1, namaAssignment: 'Assignment 1' }, { no: 2, namaAssignment: 'Assignment 2' }
+  { no: 1, namaAssignment: 'Assignment 1', sumber: 'Sumber A' },
+  { no: 2, namaAssignment: 'Assignment 2', sumber: '-' },
+  { no: 3, namaAssignment: 'Assignment 3', sumber: '-' }
 ])
 assert.equal(hasTidakDitemukanDocxSource(rows[0]!.masterSls, docxData.assignments), true)
 assert.equal(hasTidakDitemukanDocxSource(null, docxData.assignments), false, 'unknown SLS is rejected')
 assert.equal(hasTidakDitemukanDocxSource(rows[0]!.masterSls, []), false, 'non-active SLS is rejected')
+
+const statusBeforeGeneration = {
+  isSelesai: true,
+  selesaiAt: '2026-09-15T00:00:00.000Z'
+}
+const report = await generateTidakDitemukanDocx(
+  {
+    wilayah: rows[0]!.masterSls,
+    assignments: [
+      { namaAssignment: 'Assignment 1', sumber: 'Sumber A' },
+      { namaAssignment: 'Assignment 2', sumber: null },
+      { namaAssignment: 'Assignment 3', sumber: ' ' }
+    ]
+  },
+  await readFile('server/templates/tidak-ditemukan-sls-ppl.docx')
+)
+const generatedDocx = await JSZip.loadAsync(report)
+const documentXml = await generatedDocx.file('word/document.xml')!.async('string')
+const generatedText = documentXml.replace(/<[^>]+>/g, '')
+assert.match(generatedText, /1\s*Assignment 1\s*Sumber A/)
+assert.match(generatedText, /2\s*Assignment 2\s*-/)
+assert.match(generatedText, /3\s*Assignment 3\s*-/)
+assert.deepEqual(statusBeforeGeneration, {
+  isSelesai: true,
+  selesaiAt: '2026-09-15T00:00:00.000Z'
+}, 'DOCX generation does not modify completion status')
 
 console.log('Tidak Ditemukan query/status/DOCX tests passed.')
